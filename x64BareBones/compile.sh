@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==== CONFIGURACIÓN ====
-NAME="${1:-tp-arq}"
+NAME="${1:-tp-so}"
 
 MI_USER="${MI_USER:-}"
 

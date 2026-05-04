@@ -1,0 +1,6 @@
+*.o
+*.bin
+*.img
+*.qcow2
+*.vmdk
+.bash_history
