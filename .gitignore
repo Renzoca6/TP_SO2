@@ -2,5 +2,6 @@
 *.bin
 *.img
 *.qcow2
+*.Identifier
 *.vmdk
 .bash_history
