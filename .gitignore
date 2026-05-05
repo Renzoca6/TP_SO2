@@ -5,3 +5,9 @@
 *.Identifier
 *.vmdk
 .bash_history
+
+
+x64BareBones/Kernel/test/test_buddy
+x64BareBones/Kernel/test/test_bitmap
+x64BareBones/Kernel/test/test_generics
+x64BareBones/Kernel/test/test_mm

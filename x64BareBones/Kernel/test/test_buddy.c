@@ -1,165 +1,135 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
-#include <string.h>
 
-#include "../include/memory_manager.h"
+#include "memory_manager.h"
+
+// ---------------------------------------------------------------------
+// T01 - CONFIGURACIÓN Y AUXILIARES
+// ---------------------------------------------------------------------
 
 #define HEAP_SIZE (4 * 1024 * 1024)   /* 4 MB */
 static uint8_t fake_heap[HEAP_SIZE];
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                              */
-/* ------------------------------------------------------------------ */
-
+/* verifica si dos rangos de memoria se solapan */
 static int ranges_overlap(void *a, uint64_t sa, void *b, uint64_t sb) {
     uint8_t *a0 = (uint8_t *)a, *a1 = a0 + sa;
     uint8_t *b0 = (uint8_t *)b, *b1 = b0 + sb;
     return (a0 < b1) && (b0 < a1);
 }
 
-/* ------------------------------------------------------------------ */
-/* Tests                                                                */
-/* ------------------------------------------------------------------ */
+// ---------------------------------------------------------------------
+// T02 - REUTILIZACIÓN DE BLOQUES
+// ---------------------------------------------------------------------
 
-static void test_basic(void) {
+/*
+ * Verifica que al liberar un bloque y pedir otro del mismo tamaño
+ * se reutilice exactamente la misma dirección base.
+ * Propio del buddy system: los bloques se devuelven al mismo nivel
+ * del árbol y la búsqueda DFS los reencuentra en la misma posición.
+ */
+static void test_buddy_reuse(void) {
     mm_init(fake_heap, HEAP_SIZE);
 
-    void *a = mm_alloc(100);   /* → 128-byte block */
-    void *b = mm_alloc(200);   /* → 256-byte block */
-    void *c = mm_alloc(50);    /* →  64-byte block */
-
+    void *a = mm_alloc(4096);
     assert(a != NULL);
+    mm_free(a);
+
+    void *b = mm_alloc(4096);
     assert(b != NULL);
-    assert(c != NULL);
-    assert(a != b && b != c && a != c);
-    assert(!ranges_overlap(a, 128, b, 256));
-    assert(!ranges_overlap(b, 256, c,  64));
-    assert(!ranges_overlap(a, 128, c,  64));
+    assert(b == a);
 
     mm_free(b);
-    void *d = mm_alloc(200);   /* must reuse b's 256-byte block */
-    assert(d == b);
+
+    uint64_t total, used, free_mem;
+    mm_state(&total, &used, &free_mem);
+    assert(used == 0);
+    assert(free_mem == total);
+
+    printf("test_buddy_reuse        PASSED\n");
+}
+
+// ---------------------------------------------------------------------
+// T03 - COALESCENCIA DE BUDDIES
+// ---------------------------------------------------------------------
+
+/*
+ * Dos bloques adyacentes (buddies) de 4096 se fusionan al liberarlos.
+ * El alloc de 8192 debe usar el bloque fusionado desde la misma base.
+ */
+static void test_buddy_coalescence(void) {
+    mm_init(fake_heap, HEAP_SIZE);
+
+    void *x = mm_alloc(4096);
+    void *y = mm_alloc(4096);
+    assert(x != NULL);
+    assert(y != NULL);
+    assert(x != y);
+    assert(y == (uint8_t *)x + 4096);
+
+    mm_free(x);
+    mm_free(y);
+
+    void *z = mm_alloc(8192);
+    assert(z != NULL);
+    assert(z == x);
+
+    mm_free(z);
+
+    uint64_t total, used, free_mem;
+    mm_state(&total, &used, &free_mem);
+    assert(used == 0);
+
+    printf("test_buddy_coalescence   PASSED\n");
+}
+
+// ---------------------------------------------------------------------
+// T04 - COALESCENCIA PARCIAL
+// ---------------------------------------------------------------------
+
+/*
+ * Tres bloques de 2048: los dos primeros son buddies y se fusionan
+ * al liberarlos. El tercero, que no es buddy de los anteriores,
+ * debe permanecer intacto y sin solaparse con el bloque fusionado.
+ */
+static void test_partial_coalescence(void) {
+    mm_init(fake_heap, HEAP_SIZE);
+
+    void *a = mm_alloc(2048);
+    void *b = mm_alloc(2048);
+    void *c = mm_alloc(2048);
+    assert(a && b && c);
+    assert(a != b && b != c && a != c);
+    assert(b == (uint8_t *)a + 2048);
 
     mm_free(a);
+    mm_free(b);
+
+    void *d = mm_alloc(4096);
+    assert(d != NULL);
+    assert(d == a);
+
+    assert(!ranges_overlap(d, 4096, c, 2048));
+
     mm_free(c);
     mm_free(d);
 
     uint64_t total, used, free_mem;
     mm_state(&total, &used, &free_mem);
     assert(used == 0);
-    assert(free_mem == total);
 
-    printf("test_basic              PASSED\n");
+    printf("test_partial_coalescence PASSED\n");
 }
 
-static void test_null_on_zero(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-    void *p = mm_alloc(0);
-    assert(p == NULL);
-    printf("test_null_on_zero       PASSED\n");
-}
-
-static void test_out_of_memory(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-
-    uint64_t total, used, free_mem;
-    mm_state(&total, &used, &free_mem);
-
-    /* Exhaust the heap with max-size allocations */
-    void *big = mm_alloc(total);
-    assert(big != NULL);
-
-    void *extra = mm_alloc(1);
-    assert(extra == NULL);
-
-    mm_free(big);
-    printf("test_out_of_memory      PASSED\n");
-}
-
-static void test_full_coalescence(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-
-    uint64_t total, used, free_mem;
-    mm_state(&total, &used, &free_mem);
-
-    /* Allocate a single block spanning the whole heap */
-    void *p = mm_alloc(total);
-    assert(p != NULL);
-
-    mm_state(&total, &used, &free_mem);
-    assert(used == total);
-    assert(free_mem == 0);
-
-    mm_free(p);
-    mm_state(&total, &used, &free_mem);
-    assert(used == 0);
-    assert(free_mem == total);
-
-    printf("test_full_coalescence   PASSED\n");
-}
-
-static void test_alignment(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-
-    /* Every returned pointer must be at least 16-byte aligned */
-    void *ptrs[32];
-    for (int i = 0; i < 32; i++) {
-        ptrs[i] = mm_alloc(1);
-        assert(ptrs[i] != NULL);
-        assert(((uintptr_t)ptrs[i] % 16) == 0);
-    }
-    for (int i = 0; i < 32; i++)
-        mm_free(ptrs[i]);
-
-    uint64_t total, used, free_mem;
-    mm_state(&total, &used, &free_mem);
-    assert(used == 0);
-
-    printf("test_alignment          PASSED\n");
-}
-
-static void test_repeated_alloc_free(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-
-    for (int round = 0; round < 10; round++) {
-        void *p1 = mm_alloc(64);
-        void *p2 = mm_alloc(128);
-        void *p3 = mm_alloc(256);
-        assert(p1 && p2 && p3);
-        mm_free(p2);
-        mm_free(p1);
-        mm_free(p3);
-    }
-
-    uint64_t total, used, free_mem;
-    mm_state(&total, &used, &free_mem);
-    assert(used == 0);
-
-    printf("test_repeated_alloc_free PASSED\n");
-}
-
-static void test_invalid_free(void) {
-    mm_init(fake_heap, HEAP_SIZE);
-    /* Freeing NULL must not crash */
-    mm_free(NULL);
-    /* Freeing a pointer outside the heap must not crash */
-    uint8_t dummy;
-    mm_free(&dummy);
-    printf("test_invalid_free       PASSED\n");
-}
-
-/* ------------------------------------------------------------------ */
+// ---------------------------------------------------------------------
+// ENTRY POINT
+// ---------------------------------------------------------------------
 
 int main(void) {
-    printf("=== Buddy System Tests ===\n");
-    test_basic();
-    test_null_on_zero();
-    test_out_of_memory();
-    test_full_coalescence();
-    test_alignment();
-    test_repeated_alloc_free();
-    test_invalid_free();
-    printf("\nAll tests PASSED\n");
+    printf("=== Buddy-Specific Tests ===\n");
+    test_buddy_reuse();
+    test_buddy_coalescence();
+    test_partial_coalescence();
+    printf("\nAll buddy tests PASSED\n");
     return 0;
 }
