@@ -69,7 +69,7 @@ static void test_out_of_memory(void) {
     uint64_t total, used, free_mem;
     mm_state(&total, &used, &free_mem);
 
-    void *big = mm_alloc(total);
+    void *big = mm_alloc(total > 16 ? total - 16 : 0);
     assert(big != NULL);
     assert(mm_alloc(1) == NULL);
 
@@ -84,7 +84,7 @@ static void test_full_alloc_free(void) {
     uint64_t total, used, free_mem;
     mm_state(&total, &used, &free_mem);
 
-    void *p = mm_alloc(total);
+    void *p = mm_alloc(total > 16 ? total - 16 : 0);
     assert(p != NULL);
 
     mm_state(&total, &used, &free_mem);

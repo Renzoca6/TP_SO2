@@ -2,6 +2,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+// ---------------------------------------------------------------------
+// B01 - DEFINICIÓN DE CONSTANTES Y TIPOS
+// ---------------------------------------------------------------------
+
 #define BLOCK_SIZE      16u
 #define BITS_PER_WORD   32u
 
@@ -19,9 +23,9 @@ static uint8_t  *g_blocks_base  = (uint8_t *)0;
 static size_t    g_total_blocks = 0;
 static size_t    g_used_blocks  = 0;
 
-/* ------------------------------------------------------------
- * Bitmap primitives (inline, operate on uint32_t words)
- * ------------------------------------------------------------ */
+// ---------------------------------------------------------------------
+// B02 - PRIMITIVAS DEL BITMAP (inline, operan sobre words uint32_t)
+// ---------------------------------------------------------------------
 
 static inline void bitmap_set(uint32_t *bmp, size_t bit) {
     bmp[BIT_IDX(bit)] |= BIT_MASK(bit);
@@ -35,11 +39,14 @@ static inline bool bitmap_test(const uint32_t *bmp, size_t bit) {
     return (bmp[BIT_IDX(bit)] & BIT_MASK(bit)) != 0;
 }
 
-/* ------------------------------------------------------------
- * First-fit: scan bitmap left-to-right for 'needed' consecutive
- * free bits (0 = free). Returns start index or -1.
- * ------------------------------------------------------------ */
+// ---------------------------------------------------------------------
+// B03 - BÚSQUEDA FIRST-FIT
+// ---------------------------------------------------------------------
 
+/*
+ * Recorre el bitmap de izquierda a derecha buscando 'needed' bits
+ * consecutivos libres (0 = libre). Devuelve el índice de inicio o -1.
+ */
 static int32_t first_fit(size_t needed) {
     if (needed == 0 || needed > g_total_blocks)
         return -1;
@@ -62,9 +69,9 @@ static int32_t first_fit(size_t needed) {
     return -1;
 }
 
-/* ------------------------------------------------------------
- * Public API
- * ------------------------------------------------------------ */
+// ---------------------------------------------------------------------
+// B04 - INICIALIZACIÓN DEL ADMINISTRADOR DE MEMORIA
+// ---------------------------------------------------------------------
 
 void mm_init(void *heap_start, uint64_t heap_size) {
     g_total_blocks = 0;
@@ -76,14 +83,15 @@ void mm_init(void *heap_start, uint64_t heap_size) {
 
     size_t hsize = (size_t)heap_size;
 
-    /* Maximum blocks that could theoretically fit */
+    /* Máxima cantidad de bloques que podrían caber */
     size_t max_blocks = hsize / BLOCK_SIZE;
 
-    /* Bitmap dimension: words needed for every conceivable block  */
+    /* Dimensionamiento del bitmap: words necesarios para cada bloque concebible */
     size_t bitmap_words = (max_blocks + BITS_PER_WORD - 1) / BITS_PER_WORD;
     size_t bitmap_bytes = bitmap_words * sizeof(uint32_t);
 
-    /* Round bitmap_bytes up to BLOCK_SIZE so g_blocks_base stays aligned */
+    /* Redondea bitmap_bytes al siguiente múltiplo de BLOCK_SIZE
+     * para mantener g_blocks_base alineado */
     if (bitmap_bytes % BLOCK_SIZE != 0)
         bitmap_bytes = (bitmap_bytes + BLOCK_SIZE - 1) & ~(size_t)(BLOCK_SIZE - 1);
 
@@ -99,39 +107,47 @@ void mm_init(void *heap_start, uint64_t heap_size) {
     g_bitmap      = (uint32_t *)heap_start;
     g_blocks_base = (uint8_t *)heap_start + bitmap_bytes;
 
-    /* Clear the entire bitmap */
+    /* Limpia todo el bitmap */
     for (size_t i = 0; i < bitmap_words; i++)
         g_bitmap[i] = 0;
 }
+
+// ---------------------------------------------------------------------
+// B05 - ASIGNACIÓN DE MEMORIA
+// ---------------------------------------------------------------------
 
 void *mm_alloc(uint64_t size) {
     if (!g_pool || size == 0 || g_total_blocks == 0)
         return (void *)0;
 
-    /* Blocks needed for the user payload */
+    /* Bloques necesarios para los datos del usuario */
     size_t user_blocks = ((size_t)size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    /* +1 for the header block stored right before the returned pointer */
+    /* +1 por el bloque de header almacenado justo antes del puntero retornado */
     size_t needed = user_blocks + 1;
 
     int32_t start = first_fit(needed);
     if (start < 0)
         return (void *)0;
 
-    /* Mark the run as used */
+    /* Marca el tramo como usado */
     for (size_t i = 0; i < needed; i++)
         bitmap_set(g_bitmap, (size_t)start + i);
 
     g_used_blocks += needed;
 
-    /* Write header in the very first block */
+    /* Escribe el header en el primer bloque */
     uint8_t       *header_addr = g_blocks_base + (size_t)start * BLOCK_SIZE;
     blk_header_t  *hdr         = (blk_header_t *)header_addr;
     hdr->nblocks = (uint32_t)user_blocks;
 
-    /* User pointer starts *after* the header block */
+    /* El puntero retornado arranca después del bloque de header */
     return (void *)(header_addr + BLOCK_SIZE);
 }
+
+// ---------------------------------------------------------------------
+// B06 - LIBERACIÓN DE MEMORIA
+// ---------------------------------------------------------------------
 
 void mm_free(void *ptr) {
     if (!ptr || !g_pool || g_total_blocks == 0)
@@ -139,7 +155,7 @@ void mm_free(void *ptr) {
 
     uint8_t *up = (uint8_t *)ptr;
 
-    /* Bounds check */
+    /* Verificación de límites */
     if (up < g_blocks_base)
         return;
 
@@ -148,7 +164,7 @@ void mm_free(void *ptr) {
     if (offset >= g_total_blocks * BLOCK_SIZE)
         return;
 
-    /* Must be block-aligned */
+    /* Debe estar alineado a bloque */
     if (offset % BLOCK_SIZE != 0)
         return;
 
@@ -156,7 +172,7 @@ void mm_free(void *ptr) {
     if (block_idx == 0)
         return;
 
-    /* Header sits one block before the user pointer */
+    /* El header está un bloque antes del puntero del usuario */
     blk_header_t *hdr = (blk_header_t *)(up - BLOCK_SIZE);
     uint32_t user_blocks = hdr->nblocks;
 
@@ -166,12 +182,20 @@ void mm_free(void *ptr) {
     if (start_bit + total > g_total_blocks)
         return;
 
-    /* Clear the corresponding bits */
+    /* Defensivo: si ya fue liberado (bit del header es 0), no hace nada */
+    if (!bitmap_test(g_bitmap, start_bit))
+        return;
+
+    /* Limpia los bits correspondientes */
     for (size_t i = 0; i < total; i++)
         bitmap_clear(g_bitmap, start_bit + i);
 
     g_used_blocks -= total;
 }
+
+// ---------------------------------------------------------------------
+// B07 - CONSULTA DE ESTADO DE MEMORIA
+// ---------------------------------------------------------------------
 
 void mm_state(uint64_t *total, uint64_t *used, uint64_t *free_mem) {
     if (!g_pool) {
