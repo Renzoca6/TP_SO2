@@ -2,7 +2,10 @@ include Makefile.inc
 
 KERNEL       := kernel.bin
 
-# ---- memory manager selection (override with: make buddy) ----
+# ---- memory manager selection ----
+#   make         → freelist (stub)
+#   make buddy   → buddy allocator
+#   make bitmap  → bitmapped allocator
 MM_SRC       ?= memory/freelist_mm.c
 MM_OBJ        = $(MM_SRC:.c=.o)
 
@@ -41,6 +44,10 @@ all: $(KERNEL)
 # Compila con el Buddy System
 buddy:
 	$(MAKE) MM_SRC=memory/buddy_mm.c
+
+# Compila con el Bitmapped Memory Manager
+bitmap:
+	$(MAKE) MM_SRC=memory/bitmap_mm.c
 
 $(KERNEL): $(LOADER_OBJ) $(C_OBJS) $(MM_OBJ) $(ASM_OBJS) $(STATICLIBS)
 	$(LD) $(LDFLAGS) -T kernel.ld -o $@ $^

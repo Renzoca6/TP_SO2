@@ -1,18 +1,23 @@
 CC     = gcc
 CFLAGS = -Wall -std=c99 -O0 -g -I../include
 
-TARGET = test_buddy
-SRCS   = test_buddy.c ../memory/buddy_mm.c
+.PHONY: all run clean run_buddy run_bitmap
 
-all: $(TARGET)
+all: test_buddy test_bitmap
 
-$(TARGET): $(SRCS)
+test_buddy: test_buddy.c ../memory/buddy_mm.c
 	$(CC) $(CFLAGS) -o $@ $^
 
-run: $(TARGET)
-	./$(TARGET)
+test_bitmap: test_bitmap.c ../memory/bitmap_mm.c
+	$(CC) $(CFLAGS) -o $@ $^
+
+run_buddy: test_buddy
+	./test_buddy
+
+run_bitmap: test_bitmap
+	./test_bitmap
+
+run: run_buddy run_bitmap
 
 clean:
-	rm -f $(TARGET)
-
-.PHONY: all run clean
+	rm -f test_buddy test_bitmap
