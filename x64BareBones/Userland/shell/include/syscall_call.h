@@ -52,4 +52,9 @@ void audio_play(uint32_t freq_hz);
 void audio_stop(void);
 void audio_beep(uint32_t freq_hz, uint32_t duration_ms);
 
+// Memory manager
+void *malloc(uint64_t size);
+void  free(void *ptr);
+void  mem_state(uint64_t *total, uint64_t *used, uint64_t *free_mem);
+
 #endif // SYSCALL_CALL_H

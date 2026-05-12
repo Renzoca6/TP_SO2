@@ -7,6 +7,7 @@
 #include "interrupts_dispatcher.h"
 #include "keyboard_handler.h"
 #include "syscall.h"
+#include "memory_manager.h"
 
 // ---------------------------------------------------------------------
 // Variables externas definidas en el linker
@@ -20,6 +21,9 @@ extern uint8_t endOfKernel;
 // ---------------------------------------------------------------------
 static const uint64_t PageSize = 0x1000;
 void *const shellAddress = (void *)0x400000;  // visible globalmente
+
+#define HEAP_START ((void *)0x600000)
+#define HEAP_SIZE  ((uint64_t)0x200000)  // 2 MB
 
 typedef int (*EntryPoint)();
 
@@ -54,6 +58,7 @@ void *initializeKernelBinary(void) {
 // Punto de entrada principal
 // ---------------------------------------------------------------------
 int main(void) {
+    mm_init(HEAP_START, HEAP_SIZE);
     init_interrupts();
     ((EntryPoint)shellAddress)();
     return 0;
