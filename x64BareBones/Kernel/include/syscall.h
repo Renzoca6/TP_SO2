@@ -24,8 +24,17 @@
 #define SYS_MM_ALLOC          18
 #define SYS_MM_FREE           19
 #define SYS_MM_STATE          20
+#define SYS_CREATE_PROCESS    21
+#define SYS_EXIT              22
+#define SYS_GETPID             23
+#define SYS_PS                24
+#define SYS_KILL              25
+#define SYS_NICE              26
+#define SYS_BLOCK             27
+#define SYS_UNBLOCK           28
+#define SYS_YIELD             29
 
-#define MAX_SYSCALLS          21
+#define MAX_SYSCALLS          30
 
 void syscall_handler(uint64_t rax, uint64_t *registers);
 

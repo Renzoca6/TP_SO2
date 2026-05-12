@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 #define MAX_PROCESSES 64
-#define STACK_SIZE    0x4000   // 16 KB de stack por proceso
+#define STACK_SIZE    0x4000
 #define PRIORITY_LEVELS 5
+#define MAX_PROCESS_NAME 32
 
 typedef enum {
     READY,
@@ -17,30 +18,42 @@ typedef enum {
 
 typedef struct PCB {
     uint64_t pid;
-    char     name[32];
-    uint64_t rsp;            // stack pointer guardado (apunta al frame de registros)
+    char     name[MAX_PROCESS_NAME];
+    uint64_t rsp;
     uint64_t rbp;
     ProcessState state;
-    int      priority;       // 0 = más alta, 4 = más baja
-    int      foreground;     // 1 = primer plano, 0 = fondo
+    int      priority;
+    int      foreground;
     uint64_t stack_base;
     uint64_t parent_pid;
-    struct PCB *next;        
-    struct PCB *prev;       
+    uint64_t argv_data;
+    struct PCB *next;
+    struct PCB *prev;
 } PCB;
 
-/* Administración de la tabla de procesos */
+typedef struct {
+    uint64_t pid;
+    char     name[MAX_PROCESS_NAME];
+    uint64_t rsp;
+    uint64_t rbp;
+    int      priority;
+    int      state;
+    int      foreground;
+} ProcessInfo;
+
 void init_processes(void);
-int  create_process(void *entry_point, const char *name, int priority, int foreground);
+int  create_process(void *entry_point, const char *name, int priority, int foreground, int argc, char **argv);
 void kill_process(uint64_t pid);
 PCB *get_process_by_pid(uint64_t pid);
 PCB *get_current_process(void);
 void set_current_process(PCB *pcb);
+int  get_current_pid(void);
+int  get_process_list(ProcessInfo *buf, int max_count);
+int  set_process_priority(uint64_t pid, int new_priority);
+void exit_current_process(void);
 
-/* Trampolín para procesos que retornan de _start() */
 void process_exit_trampoline(void);
 
-/* Declaraciones adelantadas — definidas en scheduler.c */
 void add_to_ready_queue(PCB *pcb);
 void remove_from_ready_queue(PCB *pcb);
 

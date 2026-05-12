@@ -20,36 +20,56 @@ GLOBAL sys_putframe
 GLOBAL sys_mm_alloc
 GLOBAL sys_mm_free
 GLOBAL sys_mm_state
+GLOBAL sys_create_process
+GLOBAL sys_exit
+GLOBAL sys_getpid
+GLOBAL sys_ps
+GLOBAL sys_kill
+GLOBAL sys_nice
+GLOBAL sys_block
+GLOBAL sys_unblock
+GLOBAL sys_yield
 
-; Stub genérico para syscalls
-; ABI de Userland (SysV):
-;   arg0=rdi, arg1=rsi, arg2=rdx, arg3=rcx, arg4=r8, arg5=r9
-; El kernel espera los argumentos en los registros:
-;   arg0=rbx, arg1=rcx, arg2=rdx, arg3=rsi, arg4=rdi
-; Debemos reorganizar los registros antes de disparar int 0x80 y
-; preservar rbx (callee-saved) para el llamador en C.
 %macro SYSCALL 1
     push rbp
     mov rbp, rsp
 
-    ; Preservar registro callee-saved usado a continuación
     push rbx
 
-    ; Guardar arg3 (en RCX) temporalmente
     mov r10, rcx
 
-    ; Remapear argumentos a lo que espera el kernel
-    mov rbx, rdi     ; arg0 -> RBX
-    mov rcx, rsi     ; arg1 -> RCX
-    ; RDX ya contiene arg2
-    mov rsi, r10     ; arg3 -> RSI
-    mov rdi, r8      ; arg4 -> RDI
+    mov rbx, rdi
+    mov rcx, rsi
+    mov rsi, r10
+    mov rdi, r8
 
-    ; Número de syscall
     mov rax, %1
     int 0x80
 
-    ; Restaurar registro callee-saved
+    pop rbx
+
+    mov rsp, rbp
+    pop rbp
+    ret
+%endmacro
+
+%macro SYSCALL6 1
+    push rbp
+    mov rbp, rsp
+
+    push rbx
+
+    mov r10, rcx
+
+    mov rbx, rdi
+    mov rcx, rsi
+    mov rsi, r10
+    mov rdi, r8
+    ; R9 already contains arg5, no remapping needed
+
+    mov rax, %1
+    int 0x80
+
     pop rbx
 
     mov rsp, rbp
@@ -67,18 +87,23 @@ sys_write_at_vram:      SYSCALL 6
 sys_write_at_back:      SYSCALL 7
 sys_present_fullframe:  SYSCALL 8
 sys_get_screen_info:    SYSCALL 9
-sys_print_registers:    SYSCALL 10 
+sys_print_registers:    SYSCALL 10
 sys_getchar:            SYSCALL 11
 sys_putPixel:           SYSCALL 12
 sys_get_ms_since_boot:  SYSCALL 13
 sys_sleep_ms:           SYSCALL 14
-sys_kill_system         SYSCALL 15
+sys_kill_system:        SYSCALL 15
 sys_audio:              SYSCALL 16
 sys_putframe:           SYSCALL 17
-
 sys_mm_alloc:           SYSCALL 18
 sys_mm_free:            SYSCALL 19
 sys_mm_state:           SYSCALL 20
-
-
-
+sys_create_process:     SYSCALL6 21
+sys_exit:               SYSCALL 22
+sys_getpid:             SYSCALL 23
+sys_ps:                 SYSCALL 24
+sys_kill:               SYSCALL 25
+sys_nice:               SYSCALL 26
+sys_block:              SYSCALL 27
+sys_unblock:            SYSCALL 28
+sys_yield:              SYSCALL 29

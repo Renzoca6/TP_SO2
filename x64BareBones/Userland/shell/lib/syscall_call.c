@@ -25,6 +25,15 @@ extern uint64_t sys_putframe(void);
 extern void    *sys_mm_alloc(uint64_t size);
 extern void     sys_mm_free(void *ptr);
 extern void     sys_mm_state(uint64_t *buf);
+extern int      sys_create_process(void *entry, const char *name, int priority, int foreground, int argc, char **argv);
+extern void     sys_exit(void);
+extern int      sys_getpid(void);
+extern int      sys_ps(ProcessInfo *buf, int max_count);
+extern void     sys_kill(uint64_t pid);
+extern int      sys_nice(uint64_t pid, int new_priority);
+extern void     sys_block(uint64_t pid);
+extern void     sys_unblock(uint64_t pid);
+extern void     sys_yield(void);
 
 #define STDERR   0
 #define STDOUT  1
@@ -275,4 +284,40 @@ void mem_state(uint64_t *total, uint64_t *used, uint64_t *free_mem) {
     if (total)    *total    = buf[0];
     if (used)     *used     = buf[1];
     if (free_mem) *free_mem = buf[2];
+}
+
+int create_process(void *entry, const char *name, int priority, int foreground, int argc, char **argv) {
+    return sys_create_process(entry, name, priority, foreground, argc, argv);
+}
+
+void exit_process(void) {
+    sys_exit();
+}
+
+int getpid(void) {
+    return sys_getpid();
+}
+
+int ps(ProcessInfo *buf, int max_count) {
+    return sys_ps(buf, max_count);
+}
+
+void kill_process(uint64_t pid) {
+    sys_kill(pid);
+}
+
+int nice(uint64_t pid, int new_priority) {
+    return sys_nice(pid, new_priority);
+}
+
+void block(uint64_t pid) {
+    sys_block(pid);
+}
+
+void unblock(uint64_t pid) {
+    sys_unblock(pid);
+}
+
+void yield(void) {
+    sys_yield();
 }

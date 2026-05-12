@@ -13,6 +13,7 @@ void init_processes(void) {
         process_table[i].next = NULL;
         process_table[i].prev = NULL;
         process_table[i].stack_base = 0;
+        process_table[i].argv_data = 0;
     }
 }
 
@@ -25,19 +26,13 @@ static PCB *get_free_pcb(void) {
     return NULL;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Trampolín: si un proceso retorna de _start(), cae acá             */
-/* ------------------------------------------------------------------ */
 void process_exit_trampoline(void) {
     while (1) {
         _hlt();
     }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Crear un proceso nuevo                                            */
-/* ------------------------------------------------------------------ */
-int create_process(void *entry_point, const char *name, int priority, int foreground) {
+int create_process(void *entry_point, const char *name, int priority, int foreground, int argc, char **argv) {
     if (priority < 0 || priority >= PRIORITY_LEVELS) {
         priority = 2;
     }
@@ -54,7 +49,7 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
 
     pcb->pid = next_pid++;
     int i;
-    for (i = 0; i < 31 && name[i]; i++) {
+    for (i = 0; i < MAX_PROCESS_NAME - 1 && name[i]; i++) {
         pcb->name[i] = name[i];
     }
     pcb->name[i] = '\0';
@@ -62,30 +57,80 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
     pcb->priority = priority;
     pcb->foreground = foreground;
     pcb->stack_base = stack;
-    pcb->parent_pid = 0;
+    pcb->parent_pid = get_current_pid();
     pcb->next = NULL;
     pcb->prev = NULL;
+    pcb->argv_data = 0;
 
-  /*
- * Frame inicial del proceso en su stack:
- *   15 regs GPRs | RIP | CS | RFLAGS | RSP | SS
- *   El scheduler cargará este frame con popState + iretq.
- *   Al tope del stack va process_exit_trampoline como red de seguridad.
- */
     uint64_t *top = (uint64_t *)(stack + STACK_SIZE);
     top[-1] = (uint64_t)process_exit_trampoline;
 
-    uint64_t *frame = top - 1 - 20;   // 20 qwords = 15 GPRs + 5 CPU fields
+    uint64_t *frame = top - 1 - 20;
 
-    for (int i = 0; i < 15; i++) {
-        frame[i] = 0;
+    for (int j = 0; j < 15; j++) {
+        frame[j] = 0;
     }
 
-    frame[15] = (uint64_t)entry_point;                // RIP
-    frame[16] = 0x08;                                  // CS
-    frame[17] = 0x202;                                 // RFLAGS (IF=1)
-    frame[18] = (uint64_t)(stack + STACK_SIZE - 8);    // RSP after iretq
-    frame[19] = 0x00;                                  // SS
+    frame[15] = (uint64_t)entry_point;
+    frame[16] = 0x08;
+    frame[17] = 0x202;
+    frame[18] = (uint64_t)(stack + STACK_SIZE - 8);
+    frame[19] = 0x00;
+
+    if (argc > 0 && argv != NULL) {
+        uint64_t strings_size = 0;
+        for (int j = 0; j < argc; j++) {
+            const char *s = argv[j];
+            if (s) {
+                while (*s) {
+                    strings_size++;
+                    s++;
+                }
+                strings_size++;
+            } else {
+                strings_size++;
+            }
+        }
+
+        uint64_t ptr_array_size = (uint64_t)(argc + 1) * sizeof(char *);
+        uint64_t total_size = ptr_array_size + strings_size;
+        uint64_t align = total_size % 16;
+        if (align != 0) {
+            total_size += 16 - align;
+        }
+
+        char *buf = (char *)mm_alloc(total_size);
+        if (buf) {
+            pcb->argv_data = (uint64_t)buf;
+
+            char **ptrs = (char **)buf;
+            char *str_area = buf + ptr_array_size;
+
+            uint64_t offset = 0;
+            for (int j = 0; j < argc; j++) {
+                ptrs[j] = str_area + offset;
+                if (argv[j]) {
+                    const char *src = argv[j];
+                    while (*src) {
+                        str_area[offset++] = *src++;
+                    }
+                    str_area[offset++] = '\0';
+                } else {
+                    str_area[offset++] = '\0';
+                }
+            }
+            ptrs[argc] = NULL;
+
+            frame[9] = (uint64_t)argc;
+            frame[8] = (uint64_t)ptrs;
+        } else {
+            frame[9] = 0;
+            frame[8] = 0;
+        }
+    } else {
+        frame[9] = 0;
+        frame[8] = 0;
+    }
 
     pcb->rsp = (uint64_t)frame;
     pcb->rbp = stack + STACK_SIZE - 8;
@@ -94,9 +139,6 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
     return pcb->pid;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Matar un proceso (marcarlo; el scheduler limpia después)          */
-/* ------------------------------------------------------------------ */
 void kill_process(uint64_t pid) {
     PCB *pcb = get_process_by_pid(pid);
     if (!pcb) return;
@@ -104,9 +146,6 @@ void kill_process(uint64_t pid) {
     pcb->state = KILLED;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers auxiliares                                             */
-/* ------------------------------------------------------------------ */
 PCB *get_process_by_pid(uint64_t pid) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if (process_table[i].pid == pid) {
@@ -124,4 +163,58 @@ PCB *get_current_process(void) {
 void set_current_process(PCB *pcb) {
     extern PCB *current_process;
     current_process = pcb;
+}
+
+int get_current_pid(void) {
+    PCB *cur = get_current_process();
+    return cur ? (int)cur->pid : -1;
+}
+
+int get_process_list(ProcessInfo *buf, int max_count) {
+    if (!buf || max_count <= 0) return 0;
+
+    int count = 0;
+    for (int i = 0; i < MAX_PROCESSES && count < max_count; i++) {
+        if (process_table[i].pid > 0 && process_table[i].state != KILLED) {
+            buf[count].pid = process_table[i].pid;
+            for (int j = 0; j < MAX_PROCESS_NAME; j++) {
+                buf[count].name[j] = process_table[i].name[j];
+            }
+            buf[count].rsp = process_table[i].rsp;
+            buf[count].rbp = process_table[i].rbp;
+            buf[count].priority = process_table[i].priority;
+            buf[count].state = (int)process_table[i].state;
+            buf[count].foreground = process_table[i].foreground;
+            count++;
+        }
+    }
+    return count;
+}
+
+int set_process_priority(uint64_t pid, int new_priority) {
+    if (new_priority < 0 || new_priority >= PRIORITY_LEVELS) {
+        return -1;
+    }
+
+    PCB *pcb = get_process_by_pid(pid);
+    if (!pcb || pcb->state == KILLED) {
+        return -1;
+    }
+
+    int old_priority = pcb->priority;
+    pcb->priority = new_priority;
+
+    if (pcb->state == READY && old_priority != new_priority) {
+        remove_from_ready_queue(pcb);
+        add_to_ready_queue(pcb);
+    }
+
+    return 0;
+}
+
+void exit_current_process(void) {
+    PCB *cur = get_current_process();
+    if (cur) {
+        cur->state = KILLED;
+    }
 }

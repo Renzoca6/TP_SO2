@@ -73,7 +73,6 @@ static void idle_process(void) {
 // Punto de entrada principal
 // ---------------------------------------------------------------------
 int main(void) {
-    mm_init(HEAP_START, HEAP_SIZE);
     init_interrupts();
 
     /* Inicializar subsistemas */
@@ -82,8 +81,8 @@ int main(void) {
     init_scheduler();
 
     /* Crear procesos iniciales */
-    create_process((void *)idle_process, "idle", PRIORITY_LEVELS - 1, 0);
-    create_process((void *)shellAddress, "sh", 2, 1);
+    create_process((void *)idle_process, "idle", PRIORITY_LEVELS - 1, 0, 0, NULL);
+    create_process((void *)shellAddress, "sh", 2, 1, 0, NULL);
 
     /* El primer tick del timer hará el context switch al shell */
     while (1) {

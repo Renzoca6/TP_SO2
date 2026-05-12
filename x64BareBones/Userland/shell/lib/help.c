@@ -144,14 +144,19 @@ typedef struct {
 
 static const help_entry_t HELP_ENTRIES[] = {
     { "benchmark",   "Run system benchmarks (FPS, FP ops, HW access).",      "benchmark" },
+    { "block",       "Block a process by PID.",                                "block <pid>" },
     { "clear",       "Clear the screen.",                                    "clear" },
     { "date",        "Show the current date.",                               "date" },
     { "echo",        "Print the provided arguments.",                        "echo [args...]" },
     { "fps",         "Run kernel FPS benchmark separately.",               "fps" },
     { "help",        "Show command help.",                                   "help [command]" },
-    { "kill",        "Shutdown the system.",                                 "kill" },
+    { "kill",        "Kill a process by PID.",                               "kill <pid>" },
+    { "loop",        "Create a process that prints its PID periodically.",   "loop [priority]" },
+    { "nice",        "Change process priority.",                              "nice <pid> <priority>" },
+    { "ps",          "List all running processes.",                          "ps" },
     { "registers",   "Print the register snapshot captured with SHIFT+TAB.", "registers" },
     { "resize",      "Change font size (1-4).",                              "resize <1-4>" },
+    { "shutdown",    "Shutdown the system.",                                  "shutdown" },
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
     { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
@@ -160,6 +165,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
     { "time",        "Show the current time.",                               "time" },
     { "tron",        "Start the Tron game.",                                 "tron" },
+    { "unblock",     "Unblock a process by PID.",                             "unblock <pid>" },
 };
 
 // Busca por nombre en HELP_ENTRIES[]
@@ -181,7 +187,7 @@ static const help_entry_t *find_help_entry_(const char *name) {
 }
 
 static int is_so2_command_(const char *name) {
-    static const char *so2_list[] = { "testmm" };
+    static const char *so2_list[] = { "ps", "kill", "nice", "block", "unblock", "loop", "testmm" };
     int n = (int)(sizeof(so2_list) / sizeof(so2_list[0]));
     for (int i = 0; i < n; i++) {
         const char *a = name;

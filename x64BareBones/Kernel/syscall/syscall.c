@@ -8,13 +8,12 @@
 #include "audio.h"
 #include "io.h"
 #include "memory_manager.h"
+#include "process.h"
+#include "scheduler.h"
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
 
-// ---------------------------------------------------------------------
-// Handlers de cada syscall
-// ---------------------------------------------------------------------
 static void syscall_read(uint64_t *registers);
 static void syscall_write(uint64_t *registers);
 static void syscall_clearwindow(uint64_t *registers);
@@ -36,10 +35,16 @@ static void sycall_put_frame(uint64_t *registers);
 static void syscall_mm_alloc(uint64_t *registers);
 static void syscall_mm_free(uint64_t *registers);
 static void syscall_mm_state(uint64_t *registers);
+static void syscall_create_process(uint64_t *registers);
+static void syscall_exit(uint64_t *registers);
+static void syscall_getpid(uint64_t *registers);
+static void syscall_ps(uint64_t *registers);
+static void syscall_kill(uint64_t *registers);
+static void syscall_nice(uint64_t *registers);
+static void syscall_block(uint64_t *registers);
+static void syscall_unblock(uint64_t *registers);
+static void syscall_yield(uint64_t *registers);
 
-// ---------------------------------------------------------------------
-// Tipo de puntero a función handler y tabla de syscalls
-// ---------------------------------------------------------------------
 typedef void (*SysCallHandler)(uint64_t *);
 
 static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
@@ -64,45 +69,36 @@ static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
     syscall_mm_alloc,           // 18: SYS_MM_ALLOC
     syscall_mm_free,            // 19: SYS_MM_FREE
     syscall_mm_state,           // 20: SYS_MM_STATE
+    syscall_create_process,     // 21: SYS_CREATE_PROCESS
+    syscall_exit,               // 22: SYS_EXIT
+    syscall_getpid,             // 23: SYS_GETPID
+    syscall_ps,                 // 24: SYS_PS
+    syscall_kill,               // 25: SYS_KILL
+    syscall_nice,               // 26: SYS_NICE
+    syscall_block,              // 27: SYS_BLOCK
+    syscall_unblock,            // 28: SYS_UNBLOCK
+    syscall_yield,              // 29: SYS_YIELD
 };
 
-// ---------------------------------------------------------------------
-// Dispatcher principal: recibe el puntero al stack frame con registros
-// ---------------------------------------------------------------------
 void syscall_handler(uint64_t rax, uint64_t *registers) {
-    // Layout de registers (después de pushState):
-    // [0] = R15, [1] = R14, [2] = R13, [3] = R12, [4] = R11,
-    // [5] = R10, [6] = R9,  [7] = R8,  [8] = RSI, [9] = RDI,
-    // [10] = RBP, [11] = RDX, [12] = RCX, [13] = RBX, [14] = RAX
-
     if (rax < MAX_SYSCALLS) {
         sysCallHandlers[rax](registers);
     } else {
-        registers[14] = -1;  // Error: syscall inválida
+        registers[14] = -1;
     }
 }
 
-// =====================================================================
-// HANDLERS DE SYSCALLS
-// =====================================================================
-
-// ---------------------------------------------------------------------
-// Dibuja un frame completo (limpia el back buffer)
-// ---------------------------------------------------------------------
 static void sycall_put_frame(uint64_t *registers) {
     putFrame();
 }
 
-// ---------------------------------------------------------------------
-// Control del audio del speaker (play / stop / beep)
-// ---------------------------------------------------------------------
 static void syscall_audio(uint64_t *registers) {
-    uint64_t op   = registers[13];           // RBX
-    uint32_t freq = (uint32_t)registers[12]; // RCX
-    uint32_t dur  = (uint32_t)registers[11]; // RDX
+    uint64_t op   = registers[13];
+    uint32_t freq = (uint32_t)registers[12];
+    uint32_t dur  = (uint32_t)registers[11];
 
     switch (op) {
-        case 0: // play
+        case 0:
             if (freq == 0) {
                 registers[14] = (uint64_t)-1;
                 return;
@@ -110,57 +106,39 @@ static void syscall_audio(uint64_t *registers) {
             play_sound(freq);
             registers[14] = 0;
             break;
-
-        case 1: // stop
+        case 1:
             stop_sound();
             registers[14] = 0;
             break;
-
-        case 2: // beep
+        case 2:
             beep(freq, dur);
             registers[14] = 0;
             break;
-
         default:
             registers[14] = (uint64_t)-1;
             break;
     }
 }
 
-// ---------------------------------------------------------------------
-// Helper para write_at (usado por VRAM y BACK)
-// ---------------------------------------------------------------------
 static void syscall_write_at(uint64_t *registers, PixelTarget target) {
-    // Layout snapshot: [13]=RBX, [12]=RCX, [11]=RDX, [8]=RSI, [9]=RDI
-    const char *str   = (const char *)registers[13];  // RBX: texto
-    int col           = (int)registers[12];           // RCX: columna (x)
-    int fil           = (int)registers[11];           // RDX: fila (y)
-    uint32_t fColor   = (uint32_t)registers[8];       // RSI: color fuente
-    uint32_t bgColor  = (uint32_t)registers[9];       // RDI: color fondo
+    const char *str   = (const char *)registers[13];
+    int col           = (int)registers[12];
+    int fil           = (int)registers[11];
+    uint32_t fColor   = (uint32_t)registers[8];
+    uint32_t bgColor  = (uint32_t)registers[9];
 
     vdPrintStyled_AT(str, col, fil, fColor, bgColor, target);
 }
 
-// ---------------------------------------------------------------------
-// Pausa el sistema por X milisegundos (sleep activo con hlt)
-// ---------------------------------------------------------------------
 static void syscall_sleep_ms(uint64_t *registers) {
-    // El userland te manda el tiempo en ms por RBX → registers[13]
     uint64_t ms = registers[13];
-
     sleep_ms(ms);
 }
 
-// ---------------------------------------------------------------------
-// Devuelve los milisegundos desde el arranque
-// ---------------------------------------------------------------------
 static void syscall_get_ms_since_boot(uint64_t *registers) {
     registers[14] = timer_ms_since_boot();
 }
 
-// ---------------------------------------------------------------------
-// Dibuja un píxel (userland → kernel → driver de video)
-// ---------------------------------------------------------------------
 static void syscall_putPixel(uint64_t *registers) {
     PixelTarget target;
 
@@ -173,9 +151,6 @@ static void syscall_putPixel(uint64_t *registers) {
     putPixel(registers[13], registers[12], registers[11], target);
 }
 
-// ---------------------------------------------------------------------
-// Escritura directa en VRAM o BACK buffer
-// ---------------------------------------------------------------------
 static void syscall_write_at_VRAM(uint64_t *registers) {
     syscall_write_at(registers, PIXEL_VRAM);
 }
@@ -184,45 +159,32 @@ static void syscall_write_at_BACK(uint64_t *registers) {
     syscall_write_at(registers, PIXEL_BACK);
 }
 
-// ---------------------------------------------------------------------
-// Devuelve información de la pantalla (ancho/alto)
-// ---------------------------------------------------------------------
 static void syscall_getScreen_Info(uint64_t *registers) {
-    uint64_t which = registers[13];   // RBX: 0 = height, 1 = width
+    uint64_t which = registers[13];
 
     if (which == 0) {
-        registers[14] = vdGetHeight();  // RAX ← alto
+        registers[14] = vdGetHeight();
     } else {
-        registers[14] = vdGetWidth();   // RAX ← ancho
+        registers[14] = vdGetWidth();
     }
 }
 
-// ---------------------------------------------------------------------
-// Copia el back buffer completo al VRAM (present frame)
-// ---------------------------------------------------------------------
 static void syscall_present_fullframe(uint64_t *registers) {
     present_fullframe();
 }
 
-// ---------------------------------------------------------------------
-// Imprime texto básico (write)
-// ---------------------------------------------------------------------
 static void syscall_write(uint64_t *registers) {
-    if (registers[13] == 1) {  // RBX
-        vdPrint((const char *)registers[12], PIXEL_VRAM);  // RCX
+    if (registers[13] == 1) {
+        vdPrint((const char *)registers[12], PIXEL_VRAM);
     } else {
         vdPrintStyled((const char *)registers[12], 0x00FFFFFF, 0x00FF0000, PIXEL_VRAM);
     }
 }
 
-// ---------------------------------------------------------------------
-// Ejecuta benchmarks del sistema
-// ---------------------------------------------------------------------
 static void syscall_benchmark(uint64_t *registers) {
-    // Habilitamos interrupciones mientras corre el benchmark
     enable_interrupts();
 
-    uint64_t which = registers[13];  // RBX: cuál benchmark correr
+    uint64_t which = registers[13];
     uint64_t res = 0;
 
     switch (which) {
@@ -233,46 +195,33 @@ static void syscall_benchmark(uint64_t *registers) {
         default: res = (uint64_t)-1;               break;
     }
 
-    registers[14] = res;  // Resultado en RAX
+    registers[14] = res;
     disable_interrupts();
 }
 
-// ---------------------------------------------------------------------
-// Cambia el tamaño de la fuente de video
-// ---------------------------------------------------------------------
 static void syscall_resize(uint64_t *registers) {
-    int s = str_to_uint_ignore_sign((char *)registers[13]);  // RBX
+    int s = str_to_uint_ignore_sign((char *)registers[13]);
 
-    // Validar / clamp
     if (s < 1) s = 1;
     if (s > 4) s = 4;
 
     vdSetFontScale(s);
 }
 
-// ---------------------------------------------------------------------
-// Obtiene la fecha y hora del RTC
-// ---------------------------------------------------------------------
 static void syscall_getDate(uint64_t *registers) {
-    if (registers[13] == 1) {  // RBX
+    if (registers[13] == 1) {
         vdPrint(getDateString(), PIXEL_VRAM);
         return;
     }
     vdPrint(getTimeString(), PIXEL_VRAM);
 }
 
-// ---------------------------------------------------------------------
-// Limpia la pantalla
-// ---------------------------------------------------------------------
 static void syscall_clearwindow(uint64_t *registers) {
-    vdclearScreenDB(registers[13]);  // RBX: color
+    vdclearScreenDB(registers[13]);
 }
 
-// ---------------------------------------------------------------------
-// Lee caracteres desde el teclado (modo bloqueante)
-// ---------------------------------------------------------------------
 static void syscall_read(uint64_t *registers) {
-    char *buf = (char *)registers[13];  // RBX
+    char *buf = (char *)registers[13];
     int size = 0;
 
     clearKeyboardBuffer();
@@ -285,7 +234,7 @@ static void syscall_read(uint64_t *registers) {
                 if (k.key == '\n') {
                     vdPrintChar('\n', PIXEL_VRAM);
                     buf[size] = '\0';
-                    registers[14] = (uint64_t)size;  // RAX ← cantidad leída
+                    registers[14] = (uint64_t)size;
                     return;
                 } else if (k.key == '\b') {
                     if (size > 0) {
@@ -309,12 +258,9 @@ static void syscall_read(uint64_t *registers) {
     }
 }
 
-// ---------------------------------------------------------------------
-// Lee una tecla con timeout corto (10 ms)
-// ---------------------------------------------------------------------
 static void syscall_getchar(uint64_t *registers) {
-    char *user_buf   = (char *)registers[13];  // RBX: puntero al buffer
-    uint64_t max_len = registers[12];          // RCX: tamaño máximo
+    char *user_buf   = (char *)registers[13];
+    uint64_t max_len = registers[12];
     const uint64_t timeout_ms = 10;
 
     enable_interrupts();
@@ -329,7 +275,6 @@ static void syscall_getchar(uint64_t *registers) {
                 if (written < max_len) {
                     char ch = (char)k.key;
 
-                    // Convertir a minúscula si es letra
                     if (ch >= 'A' && ch <= 'Z') {
                         ch = ch + ('a' - 'A');
                     }
@@ -350,62 +295,117 @@ static void syscall_getchar(uint64_t *registers) {
     if (written < max_len)
         user_buf[written] = '\0';
 
-    registers[14] = written;  // RAX ← cantidad leída
+    registers[14] = written;
     disable_interrupts();
 }
 
-// ---------------------------------------------------------------------
-// Imprime el snapshot de registros guardado por Shift+Tab
-// ---------------------------------------------------------------------
 static void syscall_print_registers(uint64_t *registers) {
-    uint64_t *user_buffer = (uint64_t *)registers[13];  // RBX = puntero al buffer del usuario
+    uint64_t *user_buffer = (uint64_t *)registers[13];
     
     if (areRegsSaved()) {
         uint64_t *saved = getSavedRegs();
-        for (int i = 0; i < 20; i++) {  // REG_COUNT = 20
+        for (int i = 0; i < 20; i++) {
             user_buffer[i] = saved[i];
         }
-        registers[14] = 0;  // Éxito
+        registers[14] = 0;
     } else {
-        registers[14] = -1; // No hay snapshot
+        registers[14] = -1;
     }
 }
 
-// ---------------------------------------------------------------------
-// Apaga el sistema (en QEMU manda el código de salida)
-// ---------------------------------------------------------------------
 static void syscall_kill_system(uint64_t *registers) {
     outb(0xF4, 0x00);
 }
 
-// ---------------------------------------------------------------------
-// Memory manager: alloc (syscall 18)
-// RBX = size  →  RAX = puntero o NULL
-// ---------------------------------------------------------------------
 static void syscall_mm_alloc(uint64_t *registers) {
-    uint64_t size = registers[13];  // RBX
+    uint64_t size = registers[13];
     registers[14] = (uint64_t)mm_alloc(size);
 }
 
-// ---------------------------------------------------------------------
-// Memory manager: free (syscall 19)
-// RBX = puntero
-// ---------------------------------------------------------------------
 static void syscall_mm_free(uint64_t *registers) {
-    mm_free((void *)registers[13]);  // RBX
+    mm_free((void *)registers[13]);
     registers[14] = 0;
 }
 
-// ---------------------------------------------------------------------
-// Memory manager: state (syscall 20)
-// RBX = puntero a buffer de 3 uint64_t (total, used, free)
-// ---------------------------------------------------------------------
 static void syscall_mm_state(uint64_t *registers) {
-    uint64_t *buf = (uint64_t *)registers[13];  // RBX
+    uint64_t *buf = (uint64_t *)registers[13];
     if (buf) {
         mm_state(&buf[0], &buf[1], &buf[2]);
         registers[14] = 0;
     } else {
         registers[14] = (uint64_t)-1;
     }
+}
+
+static void syscall_create_process(uint64_t *registers) {
+    void *entry_point = (void *)registers[13];     // RBX
+    const char *name   = (const char *)registers[12]; // RCX
+    int priority       = (int)registers[11];         // RDX
+    int foreground     = (int)registers[8];          // RSI
+    int argc           = (int)registers[9];           // RDI
+    char **argv        = (char **)registers[6];        // R9
+
+    int pid = create_process(entry_point, name, priority, foreground, argc, argv);
+    registers[14] = (uint64_t)pid;
+}
+
+static void syscall_exit(uint64_t *registers) {
+    exit_current_process();
+    yield_process();
+    registers[14] = 0;
+}
+
+static void syscall_getpid(uint64_t *registers) {
+    registers[14] = (uint64_t)get_current_pid();
+}
+
+static void syscall_ps(uint64_t *registers) {
+    ProcessInfo *buf = (ProcessInfo *)registers[13]; // RBX
+    int max_count     = (int)registers[12];           // RCX
+
+    int count = get_process_list(buf, max_count);
+    registers[14] = (uint64_t)count;
+}
+
+static void syscall_kill(uint64_t *registers) {
+    uint64_t pid = registers[13]; // RBX
+    kill_process(pid);
+    registers[14] = 0;
+}
+
+static void syscall_nice(uint64_t *registers) {
+    uint64_t pid          = registers[13]; // RBX
+    int new_priority      = (int)registers[12]; // RCX
+
+    int result = set_process_priority(pid, new_priority);
+    registers[14] = (uint64_t)result;
+}
+
+static void syscall_block(uint64_t *registers) {
+    uint64_t pid = registers[13]; // RBX
+
+    if (pid == 0) {
+        int cur = get_current_pid();
+        if (cur > 0) pid = (uint64_t)cur;
+    }
+
+    PCB *pcb = get_process_by_pid(pid);
+    if (pcb && pcb->state == RUNNING) {
+        pcb->state = BLOCKED;
+        yield_process();
+    } else if (pcb && pcb->state == READY) {
+        pcb->state = BLOCKED;
+    }
+    registers[14] = 0;
+}
+
+static void syscall_unblock(uint64_t *registers) {
+    uint64_t pid = registers[13]; // RBX
+    unblock_process(pid);
+    registers[14] = 0;
+}
+
+static void syscall_yield(uint64_t *registers) {
+    yield_process();
+    registers[14] = 0;
 }
