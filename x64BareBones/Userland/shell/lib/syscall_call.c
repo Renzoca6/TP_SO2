@@ -22,6 +22,9 @@ extern void     sys_sleep_ms(uint64_t ms);
 extern uint64_t sys_get_ms_since_boot(void);
 extern uint64_t sys_audio(uint64_t op, uint32_t freq, uint32_t dur_ms);
 extern uint64_t sys_putframe(void);
+extern void    *sys_mm_alloc(uint64_t size);
+extern void     sys_mm_free(void *ptr);
+extern void     sys_mm_state(uint64_t *buf);
 
 #define STDERR   0
 #define STDOUT  1
@@ -253,4 +256,23 @@ void print_registers(void) {
 
 void printRegisters(void) {
     print_registers();
+}
+
+// ---------------------------------------------------------------------
+// Memory manager wrappers
+// ---------------------------------------------------------------------
+void *malloc(uint64_t size) {
+    return sys_mm_alloc(size);
+}
+
+void free(void *ptr) {
+    sys_mm_free(ptr);
+}
+
+void mem_state(uint64_t *total, uint64_t *used, uint64_t *free_mem) {
+    uint64_t buf[3];
+    sys_mm_state(buf);
+    if (total)    *total    = buf[0];
+    if (used)     *used     = buf[1];
+    if (free_mem) *free_mem = buf[2];
 }

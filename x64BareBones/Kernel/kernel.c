@@ -73,6 +73,7 @@ static void idle_process(void) {
 // Punto de entrada principal
 // ---------------------------------------------------------------------
 int main(void) {
+    mm_init(HEAP_START, HEAP_SIZE);
     init_interrupts();
 
     /* Inicializar subsistemas */

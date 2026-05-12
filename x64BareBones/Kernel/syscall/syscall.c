@@ -7,11 +7,10 @@
 #include "timer.h"
 #include "audio.h"
 #include "io.h"
+#include "memory_manager.h"
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
-
-#define MAX_SYSCALLS 18
 
 // ---------------------------------------------------------------------
 // Handlers de cada syscall
@@ -34,6 +33,9 @@ static void syscall_sleep_ms(uint64_t *registers);
 static void syscall_kill_system(uint64_t *registers);
 static void syscall_audio(uint64_t *registers);
 static void sycall_put_frame(uint64_t *registers);
+static void syscall_mm_alloc(uint64_t *registers);
+static void syscall_mm_free(uint64_t *registers);
+static void syscall_mm_state(uint64_t *registers);
 
 // ---------------------------------------------------------------------
 // Tipo de puntero a función handler y tabla de syscalls
@@ -59,6 +61,9 @@ static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
     syscall_kill_system,        // 15: SYS_KILL_SYSTEM
     syscall_audio,              // 16: SYS_AUDIO
     sycall_put_frame,           // 17: SYS_PUT_FRAME
+    syscall_mm_alloc,           // 18: SYS_MM_ALLOC
+    syscall_mm_free,            // 19: SYS_MM_FREE
+    syscall_mm_state,           // 20: SYS_MM_STATE
 };
 
 // ---------------------------------------------------------------------
@@ -371,4 +376,36 @@ static void syscall_print_registers(uint64_t *registers) {
 // ---------------------------------------------------------------------
 static void syscall_kill_system(uint64_t *registers) {
     outb(0xF4, 0x00);
+}
+
+// ---------------------------------------------------------------------
+// Memory manager: alloc (syscall 18)
+// RBX = size  →  RAX = puntero o NULL
+// ---------------------------------------------------------------------
+static void syscall_mm_alloc(uint64_t *registers) {
+    uint64_t size = registers[13];  // RBX
+    registers[14] = (uint64_t)mm_alloc(size);
+}
+
+// ---------------------------------------------------------------------
+// Memory manager: free (syscall 19)
+// RBX = puntero
+// ---------------------------------------------------------------------
+static void syscall_mm_free(uint64_t *registers) {
+    mm_free((void *)registers[13]);  // RBX
+    registers[14] = 0;
+}
+
+// ---------------------------------------------------------------------
+// Memory manager: state (syscall 20)
+// RBX = puntero a buffer de 3 uint64_t (total, used, free)
+// ---------------------------------------------------------------------
+static void syscall_mm_state(uint64_t *registers) {
+    uint64_t *buf = (uint64_t *)registers[13];  // RBX
+    if (buf) {
+        mm_state(&buf[0], &buf[1], &buf[2]);
+        registers[14] = 0;
+    } else {
+        registers[14] = (uint64_t)-1;
+    }
 }

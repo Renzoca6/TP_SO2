@@ -1,8 +1,8 @@
 #TPE_SO
 
 Como correrlo 
-
-docker run --name tp-so  -v "${PWD}:/root" --privileged -ti agodio/itba-so-multiarch:3.1 
+$ docker stop tp-so && docker rm tp-so
+docker run --name tp-so -v "${PWD}:/root" --privileged -d agodio/itba-so-multiarch:3.1 tail -f /dev/null
 ./compile.sh 
 ./run.sh 
 

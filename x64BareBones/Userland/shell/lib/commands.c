@@ -30,6 +30,7 @@ void kill(void);
 void testSound(void);
 void sleep(int argc, char *argv[]);
 void testsyscalls(void);  
+void test_mm_command(int argc, char *argv[]);
 
 // ---------------------------------------------------------------------
 // IMPORTANTE: DEBE SER EN ORDEN ALFABÉTICO
@@ -46,7 +47,8 @@ const command_t COMMANDS[] = {
     { "resize",     4 },
     { "sleep",     13 },
     { "testinvalidop",     5 },
-    { "testsound", 12 },
+    { "testmm",           16 },
+    { "testsound",        12 },
     { "testsyscalls",14 },  
     { "testzero",   6 },
     { "time",       7 },
@@ -76,6 +78,7 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 12: testSound();                            break;
         case 13: sleep(argc, argv);                      break;
         case 14: testsyscalls();                         break;
+        case 16: test_mm_command(argc, argv);            break;
         default:                                         break;
     }
     return 0;

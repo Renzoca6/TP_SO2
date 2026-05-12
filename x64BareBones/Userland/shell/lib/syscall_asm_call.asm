@@ -17,6 +17,9 @@ global sys_sleep_ms
 global sys_kill_system
 GLOBAL sys_audio
 GLOBAL sys_putframe
+GLOBAL sys_mm_alloc
+GLOBAL sys_mm_free
+GLOBAL sys_mm_state
 
 ; Stub genérico para syscalls
 ; ABI de Userland (SysV):
@@ -72,6 +75,10 @@ sys_sleep_ms:           SYSCALL 14
 sys_kill_system         SYSCALL 15
 sys_audio:              SYSCALL 16
 sys_putframe:           SYSCALL 17
+
+sys_mm_alloc:           SYSCALL 18
+sys_mm_free:            SYSCALL 19
+sys_mm_state:           SYSCALL 20
 
 
 
