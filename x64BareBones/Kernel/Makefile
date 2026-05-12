@@ -3,10 +3,9 @@ include Makefile.inc
 KERNEL       := kernel.bin
 
 # ---- memory manager selection ----
-#   make         → freelist (stub)
-#   make buddy   → buddy allocator
-#   make bitmap  → bitmapped allocator
-MM_SRC       ?= memory/freelist_mm.c
+#   make         → buddy allocator (default)
+#   make freelist → freelist (stub)
+MM_SRC       ?= memory/buddy_mm.c
 MM_OBJ        = $(MM_SRC:.c=.o)
 
 # ---- fuentes ----

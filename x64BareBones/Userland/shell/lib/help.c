@@ -154,6 +154,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "resize",      "Change font size (1-4).",                              "resize <1-4>" },
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
+    { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
     { "testsound",   "Test system sound/beep functionality.",                "testsound" },
     { "testsyscalls","Run a complete test of all system calls.",             "testsyscalls" },
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
@@ -179,16 +180,58 @@ static const help_entry_t *find_help_entry_(const char *name) {
     return 0;
 }
 
+static int is_so2_command_(const char *name) {
+    static const char *so2_list[] = { "testmm" };
+    int n = (int)(sizeof(so2_list) / sizeof(so2_list[0]));
+    for (int i = 0; i < n; i++) {
+        const char *a = name;
+        const char *b = so2_list[i];
+        while (*a && *b && *a == *b) { a++; b++; }
+        if (*a == '\0' && *b == '\0') return 1;
+    }
+    return 0;
+}
+
+static void write_box_section_header_(const char *title) {
+    int inner = BOX_WIDTH - 2;
+    int len   = my_strlen_(title);
+    if (len > inner) len = inner;
+
+    int left  = (inner - len) / 2;
+    int right = inner - len - left;
+
+    write("|");
+    if (left > 0) write_spaces_(left);
+    for (int i = 0; i < len; i++) {
+        char b[2] = { title[i], 0 };
+        write(b);
+    }
+    if (right > 0) write_spaces_(right);
+    write("|");
+    write("\n");
+}
+
 static void help_list_all_(const command_t *comandos, int n) {
     write_box_edge_();
     write_box_title_("AVAILABLE COMMANDS");
     write_box_edge_();
 
+    write_box_section_header_("--- Comandos TP-SO2 ---");
+
     for (int i = 0; i < n; i++) {
-        const char           *name = comandos[i].name;
-        const help_entry_t   *h    = find_help_entry_(name);
-        const char           *desc = h ? h->desc : "";
-        write_boxed_line_(name, desc);
+        if (!is_so2_command_(comandos[i].name))
+            continue;
+        const help_entry_t *h = find_help_entry_(comandos[i].name);
+        write_boxed_line_(comandos[i].name, h ? h->desc : "");
+    }
+
+    write_box_section_header_("--- Comandos TP-Arqui ---");
+
+    for (int i = 0; i < n; i++) {
+        if (is_so2_command_(comandos[i].name))
+            continue;
+        const help_entry_t *h = find_help_entry_(comandos[i].name);
+        write_boxed_line_(comandos[i].name, h ? h->desc : "");
     }
 
     write_box_edge_();
