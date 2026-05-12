@@ -19,6 +19,7 @@ GLOBAL _exception6Handler
 EXTERN syscall_handler
 EXTERN irqDispatcher
 EXTERN exceptionDispatcher
+EXTERN schedule
 
 
 SECTION .text
@@ -101,9 +102,30 @@ _hlt:
 	hlt
 	ret
 
-;8254 Timer (Timer Tick)
+; Timer 8254 (tick del timer)
+; Handler personalizado: después del dispatch normal de IRQ corre el scheduler
+; y posiblemente cambia al stack de otro proceso.
 _irq00Handler:
-	irqHandlerMaster 0
+	pushState
+
+	mov rdi, 0
+	mov rsi, rsp
+	call irqDispatcher
+
+	; Correr scheduler — pasar RSP actual (después de pushState)
+	mov rdi, rsp
+	call schedule
+	test rax, rax
+	jz .no_switch
+	mov rsp, rax          ; cambiar al stack del siguiente proceso
+.no_switch:
+
+	; avisar EOI al PIC
+	mov al, 20h
+	out 20h, al
+
+	popState
+	iretq
 
 ;Keyboard
 _irq01Handler:
