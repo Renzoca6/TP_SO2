@@ -66,24 +66,12 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
     pcb->next = NULL;
     pcb->prev = NULL;
 
-    /*
-     * Armar un frame falso de interrupción en el stack del proceso para que
-     * el primer context switch (vía iretq) arranque el proceso correctamente.
-     *
-     * Layout del stack esperado por popState + iretq:
-     *   [+0]  R15        (dirección más baja)
-     *   [+8]  R14
-     *   ...
-     *   [+112] RAX
-     *   [+120] RIP       <- empujado por el CPU
-     *   [+128] CS
-     *   [+136] RFLAGS
-     *   [+144] RSP       <- valor restaurado por el CPU en iretq
-     *   [+152] SS        (dirección más alta del frame)
-     *
-     * También colocamos process_exit_trampoline en la palabra del tope
-     * para que si _start() hace "leave; ret" caiga ahí de forma segura.
-     */
+  /*
+ * Frame inicial del proceso en su stack:
+ *   15 regs GPRs | RIP | CS | RFLAGS | RSP | SS
+ *   El scheduler cargará este frame con popState + iretq.
+ *   Al tope del stack va process_exit_trampoline como red de seguridad.
+ */
     uint64_t *top = (uint64_t *)(stack + STACK_SIZE);
     top[-1] = (uint64_t)process_exit_trampoline;
 
@@ -117,7 +105,7 @@ void kill_process(uint64_t pid) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Buscadores auxiliares                                             */
+/*  Helpers auxiliares                                             */
 /* ------------------------------------------------------------------ */
 PCB *get_process_by_pid(uint64_t pid) {
     for (int i = 0; i < MAX_PROCESSES; i++) {

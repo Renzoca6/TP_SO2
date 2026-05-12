@@ -18,15 +18,15 @@ typedef enum {
 typedef struct PCB {
     uint64_t pid;
     char     name[32];
-    uint64_t rsp;            // puntero a stack guardado (apunta al frame de registros)
+    uint64_t rsp;            // stack pointer guardado (apunta al frame de registros)
     uint64_t rbp;
     ProcessState state;
     int      priority;       // 0 = más alta, 4 = más baja
     int      foreground;     // 1 = primer plano, 0 = fondo
     uint64_t stack_base;
     uint64_t parent_pid;
-    struct PCB *next;        // enlace de cola de listos
-    struct PCB *prev;        // enlace de cola de listos
+    struct PCB *next;        
+    struct PCB *prev;       
 } PCB;
 
 /* Administración de la tabla de procesos */

@@ -21,7 +21,7 @@ void init_scheduler(void) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Ayudantes de cola de listos                                       */
+/*  queue helpers listos                                       */
 /* ------------------------------------------------------------------ */
 void add_to_ready_queue(PCB *pcb) {
     if (!pcb) return;
@@ -100,12 +100,6 @@ uint64_t schedule(uint64_t current_rsp) {
         to_free = NULL;
     }
 
-    /* Si el proceso actual sigue corriendo y le resta quantum, no cambiar */
-    if (current_process && current_process->state == RUNNING && quantum > 0) {
-        quantum--;
-        return 0;
-    }
-
     /* Guardar contexto del proceso actualmente en ejecución */
     if (current_process) {
         current_process->rsp = current_rsp;
@@ -117,7 +111,7 @@ uint64_t schedule(uint64_t current_rsp) {
         }
     }
 
-    /* Elegir siguiente proceso, saltando los matados estando en cola */
+    /* Elegir siguiente proceso, saltando los matados estando en queue */
     PCB *next = pick_next_process();
     while (next && next->state == KILLED) {
         remove_from_ready_queue(next);

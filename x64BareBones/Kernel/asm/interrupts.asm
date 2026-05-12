@@ -120,7 +120,7 @@ _irq00Handler:
 	mov rsp, rax          ; cambiar al stack del siguiente proceso
 .no_switch:
 
-	; avisar EOI al PIC
+	; signal EOI al PIC
 	mov al, 20h
 	out 20h, al
 
