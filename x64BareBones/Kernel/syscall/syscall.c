@@ -55,6 +55,7 @@ static void syscall_sem_close(uint64_t *registers);
 static void syscall_sem_wait(uint64_t *registers);
 static void syscall_sem_post(uint64_t *registers);
 static void syscall_sem_value(uint64_t *registers);
+static void syscall_wait(uint64_t *registers);
 
 typedef void (*SysCallHandler)(uint64_t *);
 
@@ -98,6 +99,7 @@ static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
     syscall_sem_wait,           // 36: SYS_SEM_WAIT
     syscall_sem_post,           // 37: SYS_SEM_POST
     syscall_sem_value,          // 38: SYS_SEM_VALUE
+    syscall_wait,               // 39: SYS_WAIT
 };
 
 void syscall_handler(uint64_t rax, uint64_t *registers) {
@@ -466,6 +468,10 @@ static void syscall_block(uint64_t *registers) {
         pcb->state = BLOCKED;
         yield_process();
     } else if (pcb && pcb->state == READY) {
+        // Hay que sacarlo de la ready queue: si lo dejamos adentro,
+        // el scheduler lo elegiría igual (sólo filtra KILLED/ZOMBIE)
+        // y un futuro unblock haría doble inserción que rompe la lista.
+        remove_from_ready_queue(pcb);
         pcb->state = BLOCKED;
     }
     registers[14] = 0;
@@ -540,4 +546,9 @@ static void syscall_set_fd(uint64_t *registers) {
 
     cur->fd[fd_index] = pipe_id;
     registers[14] = 0;
+}
+
+static void syscall_wait(uint64_t *registers) {
+    uint64_t pid = registers[13]; // RBX
+    registers[14] = (uint64_t)wait_pid(pid);
 }

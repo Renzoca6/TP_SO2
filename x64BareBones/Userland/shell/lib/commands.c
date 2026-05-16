@@ -1,5 +1,6 @@
 #include "../include/commands.h"
 #include "../include/syscall_call.h"
+#include "../include/catedra.h"
 #include "../include/help.h"
 #include "../utils/utils.h"
 #include "../include/benchmark.h"
@@ -37,7 +38,33 @@ void cmd_filter(int argc, char **argv);
 void cmd_mem(int argc, char **argv);
 void cmd_sem(int argc, char **argv);
 
-// IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
+void cmd_testproc(int argc, char **argv) {
+    int pid = create_process((void *)test_processes, "test_proc", 2, 1, argc - 1, &argv[1]);
+    if (pid < 0) {
+        println("Error: could not create test_proc process.");
+    } else {
+        wait_pid((uint64_t)pid);
+    }
+}
+
+void cmd_testprio(int argc, char **argv) {
+    int pid = create_process((void *)test_prio, "test_prio", 2, 1, argc - 1, &argv[1]);
+    if (pid < 0) {
+        println("Error: could not create test_prio process.");
+    } else {
+        wait_pid((uint64_t)pid);
+    }
+}
+
+void cmd_testsync(int argc, char **argv) {
+    int pid = create_process((void *)test_sync, "test_sync", 2, 1, argc - 1, &argv[1]);
+    if (pid < 0) {
+        println("Error: could not create test_sync process.");
+    } else {
+        wait_pid((uint64_t)pid);
+    }
+}
+
 const command_t COMMANDS[] = {
     { "benchmark",      8 },
     { "block",         27 },
@@ -60,7 +87,10 @@ const command_t COMMANDS[] = {
     { "sleep",         13 },
     { "testinvalidop",  5 },
     { "testmm",        16 },
+    { "testprio",      35 },
+    { "testproc",      34 },
     { "testsound",     12 },
+    { "testsync",      36 },
     { "testsyscalls",  14 },
     { "testzero",       6 },
     { "time",           7 },
@@ -99,8 +129,11 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 29: cmd_cat(argc, argv);                         break;
         case 30: cmd_wc(argc, argv);                          break;
         case 31: cmd_filter(argc, argv);                      break;
-        case 32: cmd_mem(argc, argv);                         break;
-        case 33: cmd_sem(argc, argv);                         break;
+case 32: cmd_mem(argc, argv);                         break;
+        case 33: cmd_sem(argc, argv);                          break;
+        case 34: cmd_testproc(argc, argv);                     break;
+        case 35: cmd_testprio(argc, argv);                     break;
+        case 36: cmd_testsync(argc, argv);                     break;
         default:                                             break;
     }
     return 0;

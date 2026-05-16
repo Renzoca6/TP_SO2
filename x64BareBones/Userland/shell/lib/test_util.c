@@ -13,8 +13,12 @@ uint32_t GetUint() {
 }
 
 uint32_t GetUniform(uint32_t max) {
+    // Versión entera: evita SSE/x87 porque el kernel no guarda/restaura
+    // xmm ni estado del FPU en el context switch. Si entrara FP acá,
+    // se corrompería entre procesos o tiraría #NM y haría triple-fault.
+    if (max == 0) return 0;
     uint32_t u = GetUint();
-    return (u + 1.0) * 2.328306435454494e-10 * max;
+    return u % max;
 }
 
 uint8_t memcheck(void *start, uint8_t value, uint32_t size) {

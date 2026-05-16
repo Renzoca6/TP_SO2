@@ -17,9 +17,36 @@ void init_scheduler(void) {
     to_free = NULL;
 }
 
+void remove_from_ready_queue(PCB *pcb) {
+    if (!pcb) return;
+
+    // Buscar en TODAS las colas, no solo en la de pcb->priority,
+    // porque la prioridad puede haber cambiado mientras estaba encolado.
+    for (int i = 0; i < PRIORITY_LEVELS; i++) {
+        if (ready_queues[i] == pcb) {
+            ready_queues[i] = pcb->next;
+            break;
+        }
+    }
+
+    if (pcb->prev) {
+        pcb->prev->next = pcb->next;
+    }
+    if (pcb->next) {
+        pcb->next->prev = pcb->prev;
+    }
+
+    pcb->next = NULL;
+    pcb->prev = NULL;
+}
+
 void add_to_ready_queue(PCB *pcb) {
     if (!pcb) return;
-    if (pcb->state == KILLED) return;
+    if (pcb->state == KILLED || pcb->state == ZOMBIE) return;
+
+    // Idempotente: si ya estaba en alguna cola, lo sacamos primero
+    // (esto evita corromper los punteros next/prev al re-encolar).
+    remove_from_ready_queue(pcb);
 
     int prio = pcb->priority;
     if (prio < 0 || prio >= PRIORITY_LEVELS) {
@@ -41,27 +68,6 @@ void add_to_ready_queue(PCB *pcb) {
     }
     tail->next = pcb;
     pcb->prev = tail;
-}
-
-void remove_from_ready_queue(PCB *pcb) {
-    if (!pcb) return;
-
-    int prio = pcb->priority;
-    if (prio < 0 || prio >= PRIORITY_LEVELS) return;
-
-    if (ready_queues[prio] == pcb) {
-        ready_queues[prio] = pcb->next;
-    }
-
-    if (pcb->prev) {
-        pcb->prev->next = pcb->next;
-    }
-    if (pcb->next) {
-        pcb->next->prev = pcb->prev;
-    }
-
-    pcb->next = NULL;
-    pcb->prev = NULL;
 }
 
 static PCB *pick_next_process(void) {
@@ -105,12 +111,17 @@ uint64_t schedule(uint64_t current_rsp) {
         } else if (current_process->state == KILLED) {
             free_pcb_resources(current_process);
         }
+        // ZOMBIE: no re-enqueue, but don't free either (parent will reap with wait_pid)
     }
 
     PCB *next = pick_next_process();
-    while (next && next->state == KILLED) {
-        remove_from_ready_queue(next);
-        free_pcb_resources(next);
+    while (next && (next->state == KILLED || next->state == ZOMBIE)) {
+        if (next->state == KILLED) {
+            remove_from_ready_queue(next);
+            free_pcb_resources(next);
+        } else {
+            remove_from_ready_queue(next);
+        }
         next = pick_next_process();
     }
 

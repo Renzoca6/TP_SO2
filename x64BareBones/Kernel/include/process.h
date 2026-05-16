@@ -33,6 +33,8 @@ typedef struct PCB {
     int      fd[2];
     // Pipe que el proceso espera (si está BLOCKED por I/O de pipe), -1 si no.
     int      waiting_pipe;
+    // PID que el proceso padre espera con wait_pid, 0 si no espera.
+    uint64_t waiting_for;
 } PCB;
 
 typedef struct {
@@ -59,6 +61,7 @@ void set_shell_pid(uint64_t pid);
 void kill_foreground_process(void);
 
 void process_exit_trampoline(void);
+int  wait_pid(uint64_t pid);
 
 void add_to_ready_queue(PCB *pcb);
 void remove_from_ready_queue(PCB *pcb);

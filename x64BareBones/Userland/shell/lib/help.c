@@ -164,7 +164,10 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
     { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
+    { "testprio",    "Test de prioridades: 3 procesos con/distinta prioridad.", "testprio <target>" },
+    { "testproc",   "Test de procesos: crea/bloquea/desbloquea/mata.",      "testproc <max_procs>" },
     { "testsound",   "Test system sound/beep functionality.",                "testsound" },
+    { "testsync",    "Test de sincronizacion con/sin semaforos.",           "testsync <n> <use_sem(0|1)>" },
     { "testsyscalls","Run a complete test of all system calls.",             "testsyscalls" },
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
     { "time",        "Show the current time.",                               "time" },
@@ -194,7 +197,7 @@ static const help_entry_t *find_help_entry_(const char *name) {
 static int is_so2_command_(const char *name) {
     static const char *so2_list[] = {
         "ps", "kill", "nice", "block", "unblock", "loop", "testmm",
-        "cat", "wc", "filter", "mem", "sem"
+        "cat", "wc", "filter", "mem", "sem", "testproc", "testprio", "testsync"
     };
     int n = (int)(sizeof(so2_list) / sizeof(so2_list[0]));
     for (int i = 0; i < n; i++) {

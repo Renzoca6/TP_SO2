@@ -1,6 +1,7 @@
 #include "process.h"
 #include "memory_manager.h"
 #include "sem.h"
+#include "scheduler.h"
 #include <string.h>
 #include "interrupts.h"
 
@@ -19,6 +20,7 @@ void init_processes(void) {
         process_table[i].fd[0] = -1;
         process_table[i].fd[1] = -1;
         process_table[i].waiting_pipe = -1;
+        process_table[i].waiting_for = 0;
     }
 }
 
@@ -32,6 +34,8 @@ static PCB *get_free_pcb(void) {
 }
 
 void process_exit_trampoline(void) {
+    exit_current_process();
+    yield_process();
     while (1) {
         _hlt();
     }
@@ -69,6 +73,7 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
     pcb->fd[0] = -1;        // stdin = terminal por defecto
     pcb->fd[1] = -1;        // stdout = terminal por defecto
     pcb->waiting_pipe = -1;
+    pcb->waiting_for = 0;
 
     uint64_t *top = (uint64_t *)(stack + STACK_SIZE);
     top[-1] = (uint64_t)process_exit_trampoline;
@@ -150,9 +155,20 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
 void kill_process(uint64_t pid) {
     PCB *pcb = get_process_by_pid(pid);
     if (!pcb) return;
-    if (pcb->state == KILLED) return;
-    pcb->state = KILLED;
+    if (pcb->state == KILLED || pcb->state == ZOMBIE) return;
+    // Sacarlo de la ready queue MIENTRAS los punteros prev/next siguen
+    // siendo válidos. Si lo dejamos adentro, cuando el slot del PCB se
+    // recicle vía get_free_pcb, los PCB vecinos seguirán apuntando acá
+    // con next/prev colgados, y add_to_ready_queue terminará creando un
+    // self-loop al recorrer la cola en busca de la tail.
+    remove_from_ready_queue(pcb);
+    pcb->state = ZOMBIE;
     sem_remove_pid((int)pid);
+    PCB *parent = get_process_by_pid(pcb->parent_pid);
+    if (parent && parent->waiting_for == pid) {
+        parent->waiting_for = 0;
+        unblock_process(parent->pid);
+    }
 }
 
 PCB *get_process_by_pid(uint64_t pid) {
@@ -224,7 +240,15 @@ int set_process_priority(uint64_t pid, int new_priority) {
 void exit_current_process(void) {
     PCB *cur = get_current_process();
     if (cur) {
-        cur->state = KILLED;
+        // current_process no debería estar en la ready queue (se sacó al
+        // ser elegido), pero llamamos por las dudas — remove es idempotente.
+        remove_from_ready_queue(cur);
+        cur->state = ZOMBIE;
+        PCB *parent = get_process_by_pid(cur->parent_pid);
+        if (parent && parent->waiting_for == cur->pid) {
+            parent->waiting_for = 0;
+            unblock_process(parent->pid);
+        }
     }
 }
 
@@ -235,10 +259,79 @@ void set_shell_pid(uint64_t pid) {
 void kill_foreground_process(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if (process_table[i].state != KILLED &&
+            process_table[i].state != ZOMBIE &&
             process_table[i].pid != 0 &&
             process_table[i].foreground == 1 &&
             process_table[i].pid != shell_pid) {
             kill_process(process_table[i].pid);
         }
     }
+}
+
+static void free_pcb_if_zombie(PCB *pcb) {
+    if (!pcb || pcb->state != ZOMBIE) return;
+    // Defensa adicional: ya debería haberse sacado al pasar a ZOMBIE,
+    // pero garantizamos que no queden referencias colgadas antes de
+    // que el slot se recicle vía get_free_pcb.
+    remove_from_ready_queue(pcb);
+    if (pcb->stack_base) {
+        mm_free((void *)pcb->stack_base);
+        pcb->stack_base = 0;
+    }
+    if (pcb->argv_data) {
+        mm_free((void *)pcb->argv_data);
+        pcb->argv_data = 0;
+    }
+    pcb->pid = 0;
+    pcb->state = KILLED;
+}
+
+int wait_pid(uint64_t pid) {
+    if (pid == 0) {
+        PCB *parent = get_current_process();
+        if (!parent) return -1;
+        for (int i = 0; i < MAX_PROCESSES; i++) {
+            if (process_table[i].parent_pid == parent->pid &&
+                process_table[i].state == ZOMBIE) {
+                int child_pid = (int)process_table[i].pid;
+                free_pcb_if_zombie(&process_table[i]);
+                return child_pid;
+            }
+        }
+        return -1;
+    }
+
+    PCB *child = get_process_by_pid(pid);
+    if (!child) return -1;
+
+    if (child->parent_pid != (uint64_t)get_current_pid()) return -1;
+
+    if (child->state == ZOMBIE) {
+        free_pcb_if_zombie(child);
+        return (int)pid;
+    }
+
+    PCB *parent = get_current_process();
+    if (!parent) return -1;
+    parent->waiting_for = pid;
+    block_current_process();
+    yield_process();
+
+    // El gate del int 0x80 es interrupt gate → IF=0 durante la syscall.
+    // yield_process() sólo setea quantum=0; el switch real necesita un
+    // tick del timer, pero las interrupciones están deshabilitadas.
+    // Hacemos sti+hlt en loop hasta que el scheduler nos vuelva a elegir
+    // (estado != BLOCKED), garantizando que cuando salgamos del loop el
+    // hijo ya está muerto y podemos reapearlo sin leakear su stack.
+    while (parent->state == BLOCKED) {
+        _hlt();
+    }
+
+    child = get_process_by_pid(pid);
+    if (child && child->state == ZOMBIE) {
+        free_pcb_if_zombie(child);
+    }
+    parent->waiting_for = 0;
+
+    return (int)pid;
 }

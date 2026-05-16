@@ -17,4 +17,9 @@ extern const int N_COMMANDS;
 // Dispatcher de comandos
 int commands_Handler(int func, int argc, char *argv[]);
 
+// Test entry points (called as separate processes)
+void cmd_testproc(int argc, char **argv);
+void cmd_testprio(int argc, char **argv);
+void cmd_testsync(int argc, char **argv);
+
 #endif // COMMANDS_H

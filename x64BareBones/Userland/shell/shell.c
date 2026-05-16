@@ -58,16 +58,7 @@ static char *sh_trim_left(char *s) {
 // Espera a que un proceso desaparezca de la tabla de procesos.
 // ---------------------------------------------------------------------
 static void wait_for_pid(int pid) {
-    ProcessInfo buf[64];
-    while (1) {
-        int n = ps(buf, 64);
-        int found = 0;
-        for (int i = 0; i < n; i++) {
-            if ((int)buf[i].pid == pid) { found = 1; break; }
-        }
-        if (!found) return;
-        yield();
-    }
+    wait_pid((uint64_t)pid);
 }
 
 // ---------------------------------------------------------------------
@@ -187,6 +178,7 @@ static void shell_dispatch(char *buf) {
 int main(void) {
     char buf[256];
     while (1) {
+        wait_pid(0);
         write("- ");
         int n = read(buf);
         // n == 0 cuando el usuario presionó Ctrl+C (ya se imprimió ^C)
