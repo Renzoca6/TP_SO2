@@ -36,6 +36,10 @@ void cmd_wc(int argc, char **argv);
 void cmd_filter(int argc, char **argv);
 void cmd_mem(int argc, char **argv);
 void cmd_sem(int argc, char **argv);
+void cmd_mvar(int argc, char **argv);
+void mvar_writer_entry(void);
+void mvar_reader_entry(void);
+void cmd_yield(int argc, char **argv);
 
 // IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
 const command_t COMMANDS[] = {
@@ -51,6 +55,7 @@ const command_t COMMANDS[] = {
     { "kill",          22 },
     { "loop",          28 },
     { "mem",           32 },
+    { "mvar",          34 },
     { "nice",          23 },
     { "ps",            17 },
     { "registers",      9 },
@@ -66,7 +71,8 @@ const command_t COMMANDS[] = {
     { "time",           7 },
     { "tron",          10 },
     { "unblock",       26 },
-    { "wc",            30 }
+    { "wc",            30 },
+    { "yield",         35 }
 };
 
 const int N_COMMANDS = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
@@ -101,6 +107,8 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 31: cmd_filter(argc, argv);                      break;
         case 32: cmd_mem(argc, argv);                         break;
         case 33: cmd_sem(argc, argv);                         break;
+        case 34: cmd_mvar(argc, argv);                        break;
+        case 35: cmd_yield(argc, argv);                       break;
         default:                                             break;
     }
     return 0;

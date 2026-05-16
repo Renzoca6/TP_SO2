@@ -103,7 +103,22 @@ void cmd_block(int argc, char **argv) {
         return;
     }
     int pid = string_to_int(argv[1]);
-    block((uint64_t)pid);
+
+    ProcessInfo buf[64];
+    int count = ps(buf, 64);
+    int is_blocked = 0;
+    for (int i = 0; i < count; i++) {
+        if ((int)buf[i].pid == pid) {
+            is_blocked = (buf[i].state == 2);
+            break;
+        }
+    }
+
+    if (is_blocked) {
+        unblock((uint64_t)pid);
+    } else {
+        block((uint64_t)pid);
+    }
 }
 
 void cmd_unblock(int argc, char **argv) {
@@ -122,7 +137,7 @@ static void loop_process(void) {
         write("Loop PID: ");
         write(pid_buf);
         write("\n");
-        sleep_ms(2000);
+        for (volatile uint64_t i = 0; i < 300000000; i++);
     }
 }
 
@@ -144,4 +159,10 @@ void cmd_loop(int argc, char **argv) {
         write(buf);
         write("\n");
     }
+}
+
+void cmd_yield(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+    yield();
 }
