@@ -33,8 +33,17 @@
 #define SYS_BLOCK             27
 #define SYS_UNBLOCK           28
 #define SYS_YIELD             29
+#define SYS_PIPE_CREATE       30
+#define SYS_PIPE_OPEN         31
+#define SYS_PIPE_CLOSE        32
+#define SYS_SET_FD            33
+#define SYS_SEM_OPEN          34
+#define SYS_SEM_CLOSE         35
+#define SYS_SEM_WAIT          36
+#define SYS_SEM_POST          37
+#define SYS_SEM_VALUE         38
 
-#define MAX_SYSCALLS          30
+#define MAX_SYSCALLS          39
 
 void syscall_handler(uint64_t rax, uint64_t *registers);
 

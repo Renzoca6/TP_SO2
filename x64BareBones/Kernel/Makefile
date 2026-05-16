@@ -16,7 +16,9 @@ C_SRCS       := $(wildcard *.c) \
                 $(wildcard utils/*.c) \
                 $(wildcard interrupts/*.c) \
                 $(wildcard process/*.c) \
-                $(wildcard scheduler/*.c)
+                $(wildcard scheduler/*.c) \
+                $(wildcard pipes/*.c) \
+                $(wildcard sem/*.c)
 
 ASM_SRCS     := $(wildcard asm/*.asm)
 
@@ -63,6 +65,6 @@ $(LOADER_OBJ): $(LOADER)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
 clean:
-	rm -f $(C_OBJS) $(ASM_OBJS) $(LOADER_OBJ) $(KERNEL) memory/*.o process/*.o scheduler/*.o
+	rm -f $(C_OBJS) $(ASM_OBJS) $(LOADER_OBJ) $(KERNEL) memory/*.o process/*.o scheduler/*.o pipes/*.o sem/*.o
 
 .PHONY: all buddy clean

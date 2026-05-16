@@ -34,6 +34,15 @@ extern int      sys_nice(uint64_t pid, int new_priority);
 extern void     sys_block(uint64_t pid);
 extern void     sys_unblock(uint64_t pid);
 extern void     sys_yield(void);
+extern int      sys_pipe_create(void);
+extern int      sys_pipe_open(const char *name);
+extern int      sys_pipe_close(int pipe_id, int side);
+extern int      sys_set_fd(int fd_index, int pipe_id);
+extern int      sys_sem_open(const char *name, int value);
+extern int      sys_sem_close(int sem_id);
+extern int      sys_sem_wait(int sem_id);
+extern int      sys_sem_post(int sem_id);
+extern int      sys_sem_value(int sem_id);
 
 #define STDERR   0
 #define STDOUT  1
@@ -320,4 +329,46 @@ void unblock(uint64_t pid) {
 
 void yield(void) {
     sys_yield();
+}
+
+// ---------------------------------------------------------------------
+// Pipes
+// ---------------------------------------------------------------------
+int pipe_create(void) {
+    return sys_pipe_create();
+}
+
+int pipe_open(const char *name) {
+    return sys_pipe_open(name);
+}
+
+int pipe_close(int pipe_id, int side) {
+    return sys_pipe_close(pipe_id, side);
+}
+
+int set_fd(int fd_index, int pipe_id) {
+    return sys_set_fd(fd_index, pipe_id);
+}
+
+// ---------------------------------------------------------------------
+// Semáforos
+// ---------------------------------------------------------------------
+int sem_open(const char *name, int value) {
+    return sys_sem_open(name, value);
+}
+
+int sem_close(int sem_id) {
+    return sys_sem_close(sem_id);
+}
+
+int sem_wait(int sem_id) {
+    return sys_sem_wait(sem_id);
+}
+
+int sem_post(int sem_id) {
+    return sys_sem_post(sem_id);
+}
+
+int sem_value(int sem_id) {
+    return sys_sem_value(sem_id);
 }

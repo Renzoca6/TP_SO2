@@ -11,6 +11,8 @@
 #include "process.h"
 #include "scheduler.h"
 #include "interrupts.h"
+#include "pipe.h"
+#include "sem.h"
 
 // ---------------------------------------------------------------------
 // Variables externas definidas en el linker
@@ -79,10 +81,13 @@ int main(void) {
     mm_init(getHeapStart(), HEAP_SIZE);
     init_processes();
     init_scheduler();
+    pipe_init();
+    sem_init();
 
     /* Crear procesos iniciales */
     create_process((void *)idle_process, "idle", PRIORITY_LEVELS - 1, 0, 0, NULL);
-    create_process((void *)shellAddress, "sh", 2, 1, 0, NULL);
+    int shell_pid_val = create_process((void *)shellAddress, "sh", 2, 1, 0, NULL);
+    set_shell_pid((uint64_t)shell_pid_val);
 
     /* El primer tick del timer hará el context switch al shell */
     while (1) {

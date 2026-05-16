@@ -66,4 +66,17 @@ void block(uint64_t pid);
 void unblock(uint64_t pid);
 void yield(void);
 
+// Pipes
+int pipe_create(void);
+int pipe_open(const char *name);
+int pipe_close(int pipe_id, int side);
+int set_fd(int fd_index, int pipe_id);
+
+// Semáforos
+int sem_open(const char *name, int value);
+int sem_close(int sem_id);
+int sem_wait(int sem_id);
+int sem_post(int sem_id);
+int sem_value(int sem_id);
+
 #endif
