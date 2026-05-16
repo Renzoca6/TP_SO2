@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "io.h"
 #include <string.h>
+#include "process.h"
+#include "video.h"
 
 #define REG_COUNT 20   // debe coincidir con el orden de pushState
 
@@ -72,6 +74,7 @@ static int count   = 0;
 
 static bool capsLock     = false;
 static bool shiftPressed = false;
+static bool ctrlPressed  = false;
 
 static inline bool bufferFull(void)  { return count == BUFFER_MAXLENGTH; }
 static inline bool bufferEmpty(void) { return count == 0; }
@@ -91,6 +94,10 @@ static void pushEvent(KeyBufferStruct ev) {
 // Carga de tecla normal (no E0)
 // ---------------------------------------------------------------------
 void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
+    // Left Ctrl press/release
+    if (scancode == 0x1D) { ctrlPressed = true;  return; }
+    if (scancode == 0x9D) { ctrlPressed = false; return; }
+
     // Shift press
     if (scancode == 0x2A || scancode == 0x36) {
         shiftPressed = true;
@@ -130,6 +137,20 @@ void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
                 ? scancode_to_ascii_mayus[scancode]
                 : scancode_to_ascii[scancode];
 
+    if (ctrlPressed) {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
+            ch = (char)(ch & 0x1F);
+            if (ch == 3) {
+                vdPrint("^C\n", PIXEL_VRAM);
+                kill_foreground_process();
+                return;
+            }
+            // Other control chars (Ctrl+D=4, etc.): fall through to enqueue
+        } else {
+            return;  // Ctrl+non-letter: ignore
+        }
+    }
+
     if (ch == 0)
         return;
 
@@ -154,6 +175,13 @@ void keyboardPressed(uint64_t *registers) {
     uint8_t code     = sc & 0x7F;
 
     if (e0_prefix) {
+        // Right Ctrl press (E0 1D) / release (E0 9D)
+        if (code == 0x1D) {
+            ctrlPressed = !released;
+            e0_prefix = false;
+            return;
+        }
+
         // Flechas set 1: E0 48 (UP), E0 4B (DOWN), E0 50 (LEFT), E0 4D (RIGHT)
         if (!released) {
             char out = 0;

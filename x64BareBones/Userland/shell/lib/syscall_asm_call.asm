@@ -29,6 +29,15 @@ GLOBAL sys_nice
 GLOBAL sys_block
 GLOBAL sys_unblock
 GLOBAL sys_yield
+GLOBAL sys_pipe_create
+GLOBAL sys_pipe_open
+GLOBAL sys_pipe_close
+GLOBAL sys_set_fd
+GLOBAL sys_sem_open
+GLOBAL sys_sem_close
+GLOBAL sys_sem_wait
+GLOBAL sys_sem_post
+GLOBAL sys_sem_value
 
 %macro SYSCALL 1
     push rbp
@@ -107,3 +116,12 @@ sys_nice:               SYSCALL 26
 sys_block:              SYSCALL 27
 sys_unblock:            SYSCALL 28
 sys_yield:              SYSCALL 29
+sys_pipe_create:        SYSCALL 30
+sys_pipe_open:          SYSCALL 31
+sys_pipe_close:         SYSCALL 32
+sys_set_fd:             SYSCALL 33
+sys_sem_open:           SYSCALL 34
+sys_sem_close:          SYSCALL 35
+sys_sem_wait:           SYSCALL 36
+sys_sem_post:           SYSCALL 37
+sys_sem_value:          SYSCALL 38

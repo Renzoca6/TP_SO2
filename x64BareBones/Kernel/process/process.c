@@ -1,10 +1,12 @@
 #include "process.h"
 #include "memory_manager.h"
+#include "sem.h"
 #include <string.h>
 #include "interrupts.h"
 
 static PCB process_table[MAX_PROCESSES];
 static uint64_t next_pid = 1;
+static uint64_t shell_pid = (uint64_t)-1;
 
 void init_processes(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
@@ -14,6 +16,9 @@ void init_processes(void) {
         process_table[i].prev = NULL;
         process_table[i].stack_base = 0;
         process_table[i].argv_data = 0;
+        process_table[i].fd[0] = -1;
+        process_table[i].fd[1] = -1;
+        process_table[i].waiting_pipe = -1;
     }
 }
 
@@ -61,6 +66,9 @@ int create_process(void *entry_point, const char *name, int priority, int foregr
     pcb->next = NULL;
     pcb->prev = NULL;
     pcb->argv_data = 0;
+    pcb->fd[0] = -1;        // stdin = terminal por defecto
+    pcb->fd[1] = -1;        // stdout = terminal por defecto
+    pcb->waiting_pipe = -1;
 
     uint64_t *top = (uint64_t *)(stack + STACK_SIZE);
     top[-1] = (uint64_t)process_exit_trampoline;
@@ -144,6 +152,7 @@ void kill_process(uint64_t pid) {
     if (!pcb) return;
     if (pcb->state == KILLED) return;
     pcb->state = KILLED;
+    sem_remove_pid((int)pid);
 }
 
 PCB *get_process_by_pid(uint64_t pid) {
@@ -216,5 +225,20 @@ void exit_current_process(void) {
     PCB *cur = get_current_process();
     if (cur) {
         cur->state = KILLED;
+    }
+}
+
+void set_shell_pid(uint64_t pid) {
+    shell_pid = pid;
+}
+
+void kill_foreground_process(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state != KILLED &&
+            process_table[i].pid != 0 &&
+            process_table[i].foreground == 1 &&
+            process_table[i].pid != shell_pid) {
+            kill_process(process_table[i].pid);
+        }
     }
 }

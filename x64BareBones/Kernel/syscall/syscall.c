@@ -10,6 +10,8 @@
 #include "memory_manager.h"
 #include "process.h"
 #include "scheduler.h"
+#include "pipe.h"
+#include "sem.h"
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
@@ -44,6 +46,15 @@ static void syscall_nice(uint64_t *registers);
 static void syscall_block(uint64_t *registers);
 static void syscall_unblock(uint64_t *registers);
 static void syscall_yield(uint64_t *registers);
+static void syscall_pipe_create(uint64_t *registers);
+static void syscall_pipe_open(uint64_t *registers);
+static void syscall_pipe_close(uint64_t *registers);
+static void syscall_set_fd(uint64_t *registers);
+static void syscall_sem_open(uint64_t *registers);
+static void syscall_sem_close(uint64_t *registers);
+static void syscall_sem_wait(uint64_t *registers);
+static void syscall_sem_post(uint64_t *registers);
+static void syscall_sem_value(uint64_t *registers);
 
 typedef void (*SysCallHandler)(uint64_t *);
 
@@ -78,6 +89,15 @@ static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
     syscall_block,              // 27: SYS_BLOCK
     syscall_unblock,            // 28: SYS_UNBLOCK
     syscall_yield,              // 29: SYS_YIELD
+    syscall_pipe_create,        // 30: SYS_PIPE_CREATE
+    syscall_pipe_open,          // 31: SYS_PIPE_OPEN
+    syscall_pipe_close,         // 32: SYS_PIPE_CLOSE
+    syscall_set_fd,             // 33: SYS_SET_FD
+    syscall_sem_open,           // 34: SYS_SEM_OPEN
+    syscall_sem_close,          // 35: SYS_SEM_CLOSE
+    syscall_sem_wait,           // 36: SYS_SEM_WAIT
+    syscall_sem_post,           // 37: SYS_SEM_POST
+    syscall_sem_value,          // 38: SYS_SEM_VALUE
 };
 
 void syscall_handler(uint64_t rax, uint64_t *registers) {
@@ -174,10 +194,22 @@ static void syscall_present_fullframe(uint64_t *registers) {
 }
 
 static void syscall_write(uint64_t *registers) {
+    const char *str = (const char *)registers[12];
+
+    // Si el proceso tiene stdout redirigido a un pipe, escribir en él.
+    PCB *cur = get_current_process();
+    if (cur && cur->fd[1] >= 0) {
+        if (!str) { registers[14] = 0; return; }
+        uint32_t len = 0;
+        while (str[len]) len++;
+        registers[14] = (uint64_t)pipe_write(cur->fd[1], str, len);
+        return;
+    }
+
     if (registers[13] == 1) {
-        vdPrint((const char *)registers[12], PIXEL_VRAM);
+        vdPrint(str, PIXEL_VRAM);
     } else {
-        vdPrintStyled((const char *)registers[12], 0x00FFFFFF, 0x00FF0000, PIXEL_VRAM);
+        vdPrintStyled(str, 0x00FFFFFF, 0x00FF0000, PIXEL_VRAM);
     }
 }
 
@@ -222,8 +254,41 @@ static void syscall_clearwindow(uint64_t *registers) {
 
 static void syscall_read(uint64_t *registers) {
     char *buf = (char *)registers[13];
-    int size = 0;
 
+    // Si el proceso tiene stdin redirigido a un pipe, leer de él.
+    PCB *cur = get_current_process();
+    if (cur && cur->fd[0] >= 0) {
+        int pipe_id = cur->fd[0];
+        int size = 0;
+
+        // Lectura línea a línea desde el pipe (hasta '\n' o EOF o 255 chars).
+        while (size < 255) {
+            char c;
+            int n = pipe_read(pipe_id, &c, 1);
+            if (n == 0) {                   // EOF
+                buf[size] = '\0';
+                registers[14] = (uint64_t)size;
+                return;
+            }
+            if (n < 0) {
+                buf[0] = '\0';
+                registers[14] = 0;
+                return;
+            }
+            if (c == '\n') {
+                buf[size] = '\0';
+                registers[14] = (uint64_t)size;
+                return;
+            }
+            buf[size++] = c;
+        }
+        buf[size] = '\0';
+        registers[14] = (uint64_t)size;
+        return;
+    }
+
+    // Lectura desde teclado (comportamiento original + Ctrl+C / Ctrl+D).
+    int size = 0;
     clearKeyboardBuffer();
     enable_interrupts();
 
@@ -235,6 +300,7 @@ static void syscall_read(uint64_t *registers) {
                     vdPrintChar('\n', PIXEL_VRAM);
                     buf[size] = '\0';
                     registers[14] = (uint64_t)size;
+                    disable_interrupts();
                     return;
                 } else if (k.key == '\b') {
                     if (size > 0) {
@@ -242,6 +308,11 @@ static void syscall_read(uint64_t *registers) {
                         buf[size] = '\0';
                         vdBackSpace(PIXEL_VRAM);
                     }
+                } else if (k.key == 4) {    // Ctrl+D (EOF)
+                    buf[size] = '\0';
+                    registers[14] = 0;
+                    disable_interrupts();
+                    return;
                 } else if (k.key) {
                     if (size + 1 < 256) {
                         buf[size++] = k.key;
@@ -250,6 +321,7 @@ static void syscall_read(uint64_t *registers) {
                         vdPrintChar('\n', PIXEL_VRAM);
                         buf[size] = '\0';
                         registers[14] = (uint64_t)size;
+                        disable_interrupts();
                         return;
                     }
                 }
@@ -407,5 +479,65 @@ static void syscall_unblock(uint64_t *registers) {
 
 static void syscall_yield(uint64_t *registers) {
     yield_process();
+    registers[14] = 0;
+}
+
+static void syscall_pipe_create(uint64_t *registers) {
+    registers[14] = (uint64_t)pipe_create();
+}
+
+static void syscall_pipe_open(uint64_t *registers) {
+    const char *name = (const char *)registers[13]; // RBX
+    registers[14] = (uint64_t)pipe_open(name);
+}
+
+static void syscall_pipe_close(uint64_t *registers) {
+    int pipe_id = (int)registers[13];   // RBX
+    int side    = (int)registers[12];   // RCX
+    registers[14] = (uint64_t)pipe_close(pipe_id, side);
+}
+
+static void syscall_sem_open(uint64_t *registers) {
+    const char *name  = (const char *)registers[13]; // RBX
+    uint16_t    value = (uint16_t)registers[12];      // RCX
+    registers[14] = (uint64_t)sem_open(name, value);
+}
+
+static void syscall_sem_close(uint64_t *registers) {
+    int sem_id = (int)registers[13];                  // RBX
+    registers[14] = (uint64_t)sem_close(sem_id);
+}
+
+static void syscall_sem_wait(uint64_t *registers) {
+    int sem_id = (int)registers[13];                  // RBX
+    registers[14] = (uint64_t)sem_wait(sem_id);
+}
+
+static void syscall_sem_post(uint64_t *registers) {
+    int sem_id = (int)registers[13];                  // RBX
+    registers[14] = (uint64_t)sem_post(sem_id);
+}
+
+static void syscall_sem_value(uint64_t *registers) {
+    int sem_id = (int)registers[13];                  // RBX
+    registers[14] = (uint64_t)sem_get_value(sem_id);
+}
+
+static void syscall_set_fd(uint64_t *registers) {
+    int fd_index = (int)registers[13];  // RBX: 0=stdin, 1=stdout
+    int pipe_id  = (int)registers[12];  // RCX: -1=terminal, >=0 pipe
+
+    if (fd_index < 0 || fd_index > 1) {
+        registers[14] = (uint64_t)-1;
+        return;
+    }
+
+    PCB *cur = get_current_process();
+    if (!cur) {
+        registers[14] = (uint64_t)-1;
+        return;
+    }
+
+    cur->fd[fd_index] = pipe_id;
     registers[14] = 0;
 }

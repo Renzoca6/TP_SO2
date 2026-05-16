@@ -31,21 +31,31 @@ void cmd_nice(int argc, char **argv);
 void cmd_block(int argc, char **argv);
 void cmd_unblock(int argc, char **argv);
 void cmd_loop(int argc, char **argv);
+void cmd_cat(int argc, char **argv);
+void cmd_wc(int argc, char **argv);
+void cmd_filter(int argc, char **argv);
+void cmd_mem(int argc, char **argv);
+void cmd_sem(int argc, char **argv);
 
+// IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
 const command_t COMMANDS[] = {
     { "benchmark",      8 },
     { "block",         27 },
+    { "cat",           29 },
     { "clear",          0 },
     { "date",           1 },
     { "echo",           2 },
+    { "filter",        31 },
     { "fps",           15 },
     { "help",           3 },
     { "kill",          22 },
     { "loop",          28 },
+    { "mem",           32 },
     { "nice",          23 },
     { "ps",            17 },
     { "registers",      9 },
     { "resize",         4 },
+    { "sem",           33 },
     { "shutdown",      11 },
     { "sleep",         13 },
     { "testinvalidop",  5 },
@@ -55,7 +65,8 @@ const command_t COMMANDS[] = {
     { "testzero",       6 },
     { "time",           7 },
     { "tron",          10 },
-    { "unblock",       26 }
+    { "unblock",       26 },
+    { "wc",            30 }
 };
 
 const int N_COMMANDS = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
@@ -85,6 +96,11 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 26: cmd_unblock(argc, argv);                     break;
         case 27: cmd_block(argc, argv);                       break;
         case 28: cmd_loop(argc, argv);                        break;
+        case 29: cmd_cat(argc, argv);                         break;
+        case 30: cmd_wc(argc, argv);                          break;
+        case 31: cmd_filter(argc, argv);                      break;
+        case 32: cmd_mem(argc, argv);                         break;
+        case 33: cmd_sem(argc, argv);                         break;
         default:                                             break;
     }
     return 0;

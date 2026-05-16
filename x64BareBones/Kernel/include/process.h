@@ -29,6 +29,10 @@ typedef struct PCB {
     uint64_t argv_data;
     struct PCB *next;
     struct PCB *prev;
+    // File descriptors: -1 = terminal, >= 0 = pipe_id
+    int      fd[2];
+    // Pipe que el proceso espera (si está BLOCKED por I/O de pipe), -1 si no.
+    int      waiting_pipe;
 } PCB;
 
 typedef struct {
@@ -51,6 +55,8 @@ int  get_current_pid(void);
 int  get_process_list(ProcessInfo *buf, int max_count);
 int  set_process_priority(uint64_t pid, int new_priority);
 void exit_current_process(void);
+void set_shell_pid(uint64_t pid);
+void kill_foreground_process(void);
 
 void process_exit_trampoline(void);
 
