@@ -165,6 +165,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
     { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
+    { "testprio",    "Priority scheduler test with 3 processes.",         "testprio <max_value>" },
     { "testsound",   "Test system sound/beep functionality.",                "testsound" },
     { "testsyscalls","Run a complete test of all system calls.",             "testsyscalls" },
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
@@ -210,7 +211,7 @@ static int is_so2_command_(const char *name) {
 
 static int is_test_command_(const char *name) {
     static const char *test_list[] = {
-        "testmm"
+        "testmm", "testprio"
     };
     int n = (int)(sizeof(test_list) / sizeof(test_list[0]));
     for (int i = 0; i < n; i++) {
