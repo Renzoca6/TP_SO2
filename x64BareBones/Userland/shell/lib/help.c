@@ -144,7 +144,7 @@ typedef struct {
 
 static const help_entry_t HELP_ENTRIES[] = {
     { "benchmark",   "Run system benchmarks (FPS, FP ops, HW access).",      "benchmark" },
-    { "block",       "Block a process by PID.",                                "block <pid>" },
+    { "block",       "Toggle block/unblock a process by PID.",           "block <pid>" },
     { "cat",         "Imprime stdin tal como lo recibe (util con pipes).",    "cat" },
     { "clear",       "Clear the screen.",                                    "clear" },
     { "date",        "Show the current date.",                               "date" },
@@ -155,6 +155,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "kill",        "Kill a process by PID.",                               "kill <pid>" },
     { "loop",        "Create a process that prints its PID periodically.",   "loop [priority]" },
     { "mem",         "Imprime el estado de la memoria del sistema.",          "mem" },
+    { "mvar",        "Multiple readers/writers sobre MVar con semaforos.",  "mvar <n_writers> <n_readers>" },
     { "nice",        "Change process priority.",                              "nice <pid> <priority>" },
     { "ps",          "List all running processes.",                          "ps" },
     { "registers",   "Print the register snapshot captured with SHIFT+TAB.", "registers" },
@@ -164,6 +165,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
     { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
+    { "testprio",    "Priority scheduler test with 3 processes.",         "testprio <max_value>" },
     { "testsound",   "Test system sound/beep functionality.",                "testsound" },
     { "testsyscalls","Run a complete test of all system calls.",             "testsyscalls" },
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
@@ -171,6 +173,7 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "tron",        "Start the Tron game.",                                 "tron" },
     { "unblock",     "Unblock a process by PID.",                             "unblock <pid>" },
     { "wc",          "Cuenta la cantidad de lineas del input.",               "wc" },
+    { "yield",       "Yield the CPU voluntarily.",                            "yield" },
 };
 
 // Busca por nombre en HELP_ENTRIES[]
@@ -193,13 +196,27 @@ static const help_entry_t *find_help_entry_(const char *name) {
 
 static int is_so2_command_(const char *name) {
     static const char *so2_list[] = {
-        "ps", "kill", "nice", "block", "unblock", "loop", "testmm",
-        "cat", "wc", "filter", "mem", "sem"
+        "ps", "kill", "nice", "block", "unblock", "loop",
+        "cat", "wc", "filter", "mem", "sem", "mvar"
     };
     int n = (int)(sizeof(so2_list) / sizeof(so2_list[0]));
     for (int i = 0; i < n; i++) {
         const char *a = name;
         const char *b = so2_list[i];
+        while (*a && *b && *a == *b) { a++; b++; }
+        if (*a == '\0' && *b == '\0') return 1;
+    }
+    return 0;
+}
+
+static int is_test_command_(const char *name) {
+    static const char *test_list[] = {
+        "testmm", "testprio"
+    };
+    int n = (int)(sizeof(test_list) / sizeof(test_list[0]));
+    for (int i = 0; i < n; i++) {
+        const char *a = name;
+        const char *b = test_list[i];
         while (*a && *b && *a == *b) { a++; b++; }
         if (*a == '\0' && *b == '\0') return 1;
     }
@@ -239,10 +256,19 @@ static void help_list_all_(const command_t *comandos, int n) {
         write_boxed_line_(comandos[i].name, h ? h->desc : "");
     }
 
+    write_box_section_header_("--- Comandos TP-Tests ---");
+
+    for (int i = 0; i < n; i++) {
+        if (!is_test_command_(comandos[i].name))
+            continue;
+        const help_entry_t *h = find_help_entry_(comandos[i].name);
+        write_boxed_line_(comandos[i].name, h ? h->desc : "");
+    }
+
     write_box_section_header_("--- Comandos TP-Arqui ---");
 
     for (int i = 0; i < n; i++) {
-        if (is_so2_command_(comandos[i].name))
+        if (is_so2_command_(comandos[i].name) || is_test_command_(comandos[i].name))
             continue;
         const help_entry_t *h = find_help_entry_(comandos[i].name);
         write_boxed_line_(comandos[i].name, h ? h->desc : "");

@@ -251,11 +251,16 @@ int set_process_priority(uint64_t pid, int new_priority) {
     }
 
     int old_priority = pcb->priority;
-    pcb->priority = new_priority;
 
     if (pcb->state == READY && old_priority != new_priority) {
+        // Importante: remover usando la prioridad VIEJA antes de cambiarla,
+        // si no remove_from_ready_queue busca en la cola equivocada y deja
+        // el proceso enganchado en la cola vieja con punteros rotos.
         remove_from_ready_queue(pcb);
+        pcb->priority = new_priority;
         add_to_ready_queue(pcb);
+    } else {
+        pcb->priority = new_priority;
     }
 
     return 0;

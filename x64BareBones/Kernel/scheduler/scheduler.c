@@ -108,9 +108,11 @@ uint64_t schedule(uint64_t current_rsp) {
     }
 
     PCB *next = pick_next_process();
-    while (next && next->state == KILLED) {
+    while (next && (next->state == KILLED || next->state == BLOCKED)) {
         remove_from_ready_queue(next);
-        free_pcb_resources(next);
+        if (next->state == KILLED) {
+            free_pcb_resources(next);
+        }
         next = pick_next_process();
     }
 

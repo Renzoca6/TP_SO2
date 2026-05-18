@@ -468,6 +468,7 @@ static void syscall_block(uint64_t *registers) {
         pcb->state = BLOCKED;
         yield_process();
     } else if (pcb && pcb->state == READY) {
+        remove_from_ready_queue(pcb);
         pcb->state = BLOCKED;
     }
     registers[14] = 0;

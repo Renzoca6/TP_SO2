@@ -3,6 +3,7 @@
 Como correrlo 
 $ docker stop tp-so && docker rm tp-so
 docker run --name tp-so -v "${PWD}:/root" --privileged -d agodio/itba-so-multiarch:3.1 tail -f /dev/null
+sudo chown $USER:$USER "/home/renzo/SO/TP 2/TP_SO2/x64BareBones/Image/x64BareBonesImage.qcow2"
 ./compile.sh 
 ./run.sh 
 

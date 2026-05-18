@@ -37,6 +37,11 @@ void cmd_filter(int argc, char **argv);
 void cmd_mem(int argc, char **argv);
 void cmd_sem(int argc, char **argv);
 void cmd_test_proc(int argc, char **argv);
+void cmd_mvar(int argc, char **argv);
+void mvar_writer_entry(void);
+void mvar_reader_entry(void);
+void cmd_yield(int argc, char **argv);
+void cmd_test_prio(int argc, char **argv);
 
 // IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
 const command_t COMMANDS[] = {
@@ -52,6 +57,7 @@ const command_t COMMANDS[] = {
     { "kill",          22 },
     { "loop",          28 },
     { "mem",           32 },
+    { "mvar",          34 },
     { "nice",          23 },
     { "ps",            17 },
     { "registers",      9 },
@@ -62,13 +68,15 @@ const command_t COMMANDS[] = {
     { "test_proc",     34 },
     { "testinvalidop",  5 },
     { "testmm",        16 },
+    { "testprio",      18 },
     { "testsound",     12 },
     { "testsyscalls",  14 },
     { "testzero",       6 },
     { "time",           7 },
     { "tron",          10 },
     { "unblock",       26 },
-    { "wc",            30 }
+    { "wc",            30 },
+    { "yield",         35 }
 };
 
 const int N_COMMANDS = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
@@ -93,6 +101,7 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 15: fps();                                      break;
         case 16: test_mm_command(argc, argv);               break;
         case 17: cmd_ps(argc, argv);                          break;
+        case 18: cmd_test_prio(argc, argv);                    break;
         case 22: cmd_kill(argc, argv);                        break;
         case 23: cmd_nice(argc, argv);                        break;
         case 26: cmd_unblock(argc, argv);                     break;
@@ -104,6 +113,8 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 32: cmd_mem(argc, argv);                         break;
         case 33: cmd_sem(argc, argv);                         break;
         case 34: cmd_test_proc(argc, argv);                  break;
+        case 34: cmd_mvar(argc, argv);                        break;
+        case 35: cmd_yield(argc, argv);                       break;
         default:                                             break;
     }
     return 0;
