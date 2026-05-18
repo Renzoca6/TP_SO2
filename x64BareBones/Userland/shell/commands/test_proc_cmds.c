@@ -22,6 +22,7 @@ typedef struct {
 static int64_t test_processes(uint64_t argc, char *argv[]) {
     uint64_t rq;
     uint64_t alive = 0;
+    uint64_t iteration = 0;
     uint8_t  action;
     uint64_t max_processes;
     char    *argvAux[] = {0};
@@ -35,6 +36,8 @@ static int64_t test_processes(uint64_t argc, char *argv[]) {
     p_rq p_rqs[max_processes];
 
     while (1) {
+        iteration++;
+
         // Crear max_processes procesos endless_loop
         for (rq = 0; rq < max_processes; rq++) {
             p_rqs[rq].pid = my_create_process(endless_loop, 0, argvAux);

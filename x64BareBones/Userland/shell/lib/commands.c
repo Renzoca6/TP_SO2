@@ -65,10 +65,10 @@ const command_t COMMANDS[] = {
     { "sem",           33 },
     { "shutdown",      11 },
     { "sleep",         13 },
-    { "test_proc",     34 },
     { "testinvalidop",  5 },
     { "testmm",        16 },
     { "testprio",      18 },
+    { "testproc",      36 },
     { "testsound",     12 },
     { "testsyscalls",  14 },
     { "testzero",       6 },
@@ -112,7 +112,7 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 31: cmd_filter(argc, argv);                      break;
         case 32: cmd_mem(argc, argv);                         break;
         case 33: cmd_sem(argc, argv);                         break;
-        case 34: cmd_test_proc(argc, argv);                  break;
+        case 36: cmd_test_proc(argc, argv);                  break;
         case 34: cmd_mvar(argc, argv);                        break;
         case 35: cmd_yield(argc, argv);                       break;
         default:                                             break;

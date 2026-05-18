@@ -57,7 +57,8 @@ int  set_process_priority(uint64_t pid, int new_priority);
 void exit_current_process(void);
 void set_shell_pid(uint64_t pid);
 void kill_foreground_process(void);
-int  wait_child(uint64_t child_pid);
+int   wait_child(uint64_t child_pid);
+char *build_wait_sem_name(uint64_t pid);
 
 void process_exit_trampoline(void);
 
