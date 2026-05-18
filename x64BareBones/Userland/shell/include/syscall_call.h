@@ -79,4 +79,7 @@ int sem_wait(int sem_id);
 int sem_post(int sem_id);
 int sem_value(int sem_id);
 
+// Espera bloqueante a que un proceso hijo termine
+int waitpid(uint64_t pid);
+
 #endif

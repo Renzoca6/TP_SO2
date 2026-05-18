@@ -36,6 +36,7 @@ void cmd_wc(int argc, char **argv);
 void cmd_filter(int argc, char **argv);
 void cmd_mem(int argc, char **argv);
 void cmd_sem(int argc, char **argv);
+void cmd_test_proc(int argc, char **argv);
 
 // IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
 const command_t COMMANDS[] = {
@@ -58,6 +59,7 @@ const command_t COMMANDS[] = {
     { "sem",           33 },
     { "shutdown",      11 },
     { "sleep",         13 },
+    { "test_proc",     34 },
     { "testinvalidop",  5 },
     { "testmm",        16 },
     { "testsound",     12 },
@@ -101,6 +103,7 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 31: cmd_filter(argc, argv);                      break;
         case 32: cmd_mem(argc, argv);                         break;
         case 33: cmd_sem(argc, argv);                         break;
+        case 34: cmd_test_proc(argc, argv);                  break;
         default:                                             break;
     }
     return 0;
