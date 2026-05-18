@@ -42,8 +42,9 @@
 #define SYS_SEM_WAIT          36
 #define SYS_SEM_POST          37
 #define SYS_SEM_VALUE         38
+#define SYS_WAITPID           39
 
-#define MAX_SYSCALLS          39
+#define MAX_SYSCALLS          40
 
 void syscall_handler(uint64_t rax, uint64_t *registers);
 

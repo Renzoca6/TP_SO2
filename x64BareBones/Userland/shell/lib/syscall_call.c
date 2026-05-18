@@ -43,6 +43,7 @@ extern int      sys_sem_close(int sem_id);
 extern int      sys_sem_wait(int sem_id);
 extern int      sys_sem_post(int sem_id);
 extern int      sys_sem_value(int sem_id);
+extern int      sys_waitpid(uint64_t pid);
 
 #define STDERR   0
 #define STDOUT  1
@@ -371,4 +372,8 @@ int sem_post(int sem_id) {
 
 int sem_value(int sem_id) {
     return sys_sem_value(sem_id);
+}
+
+int waitpid(uint64_t pid) {
+    return sys_waitpid(pid);
 }

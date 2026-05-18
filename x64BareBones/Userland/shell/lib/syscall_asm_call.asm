@@ -38,6 +38,7 @@ GLOBAL sys_sem_close
 GLOBAL sys_sem_wait
 GLOBAL sys_sem_post
 GLOBAL sys_sem_value
+GLOBAL sys_waitpid
 
 %macro SYSCALL 1
     push rbp
@@ -125,3 +126,4 @@ sys_sem_close:          SYSCALL 35
 sys_sem_wait:           SYSCALL 36
 sys_sem_post:           SYSCALL 37
 sys_sem_value:          SYSCALL 38
+sys_waitpid:            SYSCALL 39

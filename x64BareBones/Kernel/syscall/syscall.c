@@ -55,6 +55,7 @@ static void syscall_sem_close(uint64_t *registers);
 static void syscall_sem_wait(uint64_t *registers);
 static void syscall_sem_post(uint64_t *registers);
 static void syscall_sem_value(uint64_t *registers);
+static void syscall_waitpid(uint64_t *registers);
 
 typedef void (*SysCallHandler)(uint64_t *);
 
@@ -98,6 +99,7 @@ static SysCallHandler sysCallHandlers[MAX_SYSCALLS] = {
     syscall_sem_wait,           // 36: SYS_SEM_WAIT
     syscall_sem_post,           // 37: SYS_SEM_POST
     syscall_sem_value,          // 38: SYS_SEM_VALUE
+    syscall_waitpid,            // 39: SYS_WAITPID
 };
 
 void syscall_handler(uint64_t rax, uint64_t *registers) {
@@ -522,6 +524,11 @@ static void syscall_sem_post(uint64_t *registers) {
 static void syscall_sem_value(uint64_t *registers) {
     int sem_id = (int)registers[13];                  // RBX
     registers[14] = (uint64_t)sem_get_value(sem_id);
+}
+
+static void syscall_waitpid(uint64_t *registers) {
+    uint64_t pid = registers[13];   // RBX — primer argumento
+    registers[14] = (uint64_t)wait_child(pid);
 }
 
 static void syscall_set_fd(uint64_t *registers) {

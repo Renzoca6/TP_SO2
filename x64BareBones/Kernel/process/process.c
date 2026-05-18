@@ -8,6 +8,36 @@ static PCB process_table[MAX_PROCESSES];
 static uint64_t next_pid = 1;
 static uint64_t shell_pid = (uint64_t)-1;
 
+// ---------------------------------------------------------------------
+// Helpers para el mecanismo de waitpid basado en semáforos.
+// El semáforo "wait_<pid>" es creado por kill_process/exit_current_process
+// y destruido por wait_child mediante doble sem_close.
+// ---------------------------------------------------------------------
+static void uint64_to_dec_str(uint64_t n, char *buf) {
+    char tmp[21];
+    int i = 0;
+    if (n == 0) { buf[0] = '0'; buf[1] = '\0'; return; }
+    while (n > 0) { tmp[i++] = (char)('0' + n % 10); n /= 10; }
+    int j;
+    for (j = 0; j < i; j++) buf[j] = tmp[i - 1 - j];
+    buf[j] = '\0';
+}
+
+static char *build_wait_sem_name(uint64_t pid) {
+    if (pid == 0) return NULL;
+    char num[21];
+    uint64_to_dec_str(pid, num);
+    int num_len = 0;
+    while (num[num_len]) num_len++;
+    // "wait_" (5) + num + '\0'
+    char *buf = (char *)mm_alloc((uint64_t)(6 + num_len));
+    if (!buf) return NULL;
+    buf[0]='w'; buf[1]='a'; buf[2]='i'; buf[3]='t'; buf[4]='_';
+    for (int i = 0; i < num_len; i++) buf[5 + i] = num[i];
+    buf[5 + num_len] = '\0';
+    return buf;
+}
+
 void init_processes(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         process_table[i].state = KILLED;
@@ -151,6 +181,16 @@ void kill_process(uint64_t pid) {
     PCB *pcb = get_process_by_pid(pid);
     if (!pcb) return;
     if (pcb->state == KILLED) return;
+
+    // Despertar al padre bloqueado en wait_child antes de marcar como KILLED.
+    // kill/exit abre el semáforo y NO lo cierra; wait_child hace el doble-close.
+    char *sem_name = build_wait_sem_name(pid);
+    if (sem_name) {
+        int sem_id = sem_open(sem_name, 0);
+        if (sem_id >= 0) sem_post(sem_id);
+        mm_free(sem_name);
+    }
+
     pcb->state = KILLED;
     sem_remove_pid((int)pid);
 }
@@ -228,9 +268,17 @@ int set_process_priority(uint64_t pid, int new_priority) {
 
 void exit_current_process(void) {
     PCB *cur = get_current_process();
-    if (cur) {
-        cur->state = KILLED;
+    if (!cur) return;
+
+    // Despertar al padre bloqueado en wait_child antes de marcar como KILLED.
+    char *sem_name = build_wait_sem_name(cur->pid);
+    if (sem_name) {
+        int sem_id = sem_open(sem_name, 0);
+        if (sem_id >= 0) sem_post(sem_id);
+        mm_free(sem_name);
     }
+
+    cur->state = KILLED;
 }
 
 void set_shell_pid(uint64_t pid) {
@@ -246,4 +294,28 @@ void kill_foreground_process(void) {
             kill_process(process_table[i].pid);
         }
     }
+}
+
+// ---------------------------------------------------------------------
+// Espera a que el proceso hijo termine (bloquea al proceso actual).
+//
+// Mecanismo:
+//   - kill_process/exit_current_process llama sem_open("wait_<pid>", 0)
+//     y sem_post sin cerrar → semáforo queda con value=1, users=1.
+//   - wait_child llama sem_open (users=2), sem_wait (procede si value=1,
+//     o bloquea si el hijo aún no terminó), y luego sem_close×2
+//     para destruir el semáforo (users 2→1→0).
+// ---------------------------------------------------------------------
+int wait_child(uint64_t child_pid) {
+    char *sem_name = build_wait_sem_name(child_pid);
+    if (!sem_name) return -1;
+
+    int sem_id = sem_open(sem_name, 0);
+    mm_free(sem_name);
+    if (sem_id < 0) return -1;
+
+    sem_wait(sem_id);   // bloquea hasta que kill/exit haga sem_post
+    sem_close(sem_id);  // users: N → N-1  (referencia de wait_child)
+    sem_close(sem_id);  // users: N-1 → N-2, eventualmente 0 → destruye sem
+    return 0;
 }
