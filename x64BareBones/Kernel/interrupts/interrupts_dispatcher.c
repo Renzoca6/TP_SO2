@@ -52,8 +52,11 @@ void init_interrupts(void) {
     pic_init();        
 
     timer_init(1000);       // programar PIT a 1000 Hz (1 ms), no a 1 Hz
-    pic_unmask_irq(0);      // habilitar IRQ0 (timer): si lo seteo en 1 ya no respondería ante el timer 
+    pic_unmask_irq(0);      // habilitar IRQ0 (timer): si lo seteo en 1 ya no respondería ante el timer
     pic_unmask_irq(1);      // habilitar IRQ1 (teclado)
-	
-    enable_interrupts();
+
+    // OJO: NO habilitar interrupciones acá. main() las habilita recién
+    // después de crear idle y shell, para evitar que el timer dispare
+    // entre add_to_ready_queue(idle) y add_to_ready_queue(shell) y el
+    // scheduler haga context switch perdiendo el contexto del main().
 }

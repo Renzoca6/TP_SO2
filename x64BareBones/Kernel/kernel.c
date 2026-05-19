@@ -89,7 +89,11 @@ int main(void) {
     int shell_pid_val = create_process((void *)shellAddress, "sh", 2, 1, 0, NULL);
     set_shell_pid((uint64_t)shell_pid_val);
 
-    /* El primer tick del timer hará el context switch al shell */
+    /* Recién ahora habilitamos interrupciones: con idle y shell ya en la
+       ready queue, el primer tick del timer hace context switch al shell. */
+    extern void enable_interrupts(void);
+    enable_interrupts();
+
     while (1) {
         _hlt();
     }
