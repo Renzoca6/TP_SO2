@@ -103,7 +103,12 @@ void cmd_test_sync(int argc, char **argv) {
 
     char buf[32];
     write("Final value: ");
-    uintToBase((uint64_t)g_global, buf, 10);
+    if (g_global < 0) {
+        write("-");
+        uintToBase((uint64_t)(-g_global), buf, 10);
+    } else {
+        uintToBase((uint64_t)g_global, buf, 10);
+    }
     write(buf);
     write("\n");
 }
