@@ -491,6 +491,11 @@ static void syscall_unblock(uint64_t *registers) {
 
 static void syscall_yield(uint64_t *registers) {
     yield_process();
+    // sti + hlt: rehabilita interrupciones y duerme la CPU hasta el
+    // próximo interrupt (el timer típicamente dispara cada 55ms a 18Hz).
+    // Sin el hlt, syscall_yield retorna al userland mucho antes del
+    // próximo tick y slowInc no logra entrelazar procesos.
+    __asm__ __volatile__("sti; hlt");
     registers[14] = 0;
 }
 

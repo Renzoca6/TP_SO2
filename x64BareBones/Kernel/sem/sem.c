@@ -25,6 +25,7 @@
 // Declaraciones de las funciones ASM en libasm.asm
 extern int  semLock(uint8_t *lock);
 extern void semUnlock(uint8_t *lock);
+extern void enable_interrupts(void);
 
 static Sem     sems[MAX_SEMS];
 static uint8_t registry_lock = 0;   // protege sem_open / sem_close
@@ -141,10 +142,19 @@ int sem_wait(int sem_id) {
     // contexto de syscall), el scheduler lo sacará correctamente.
     semUnlock(&sems[sem_id].lock);
 
+    PCB *cur = get_current_process();
     block_current_process();    // state = BLOCKED
-    yield_process();            // quantum = 0 → switch en el próximo tick
 
-    // El proceso retoma aquí cuando sem_post llame a unblock_process().
+    // Loop hasta que sem_post realmente desbloquee este proceso.
+    // sti+hlt despierta con CUALQUIER interrupt (timer, teclado, etc.),
+    // no solo el del scheduler. Si despertamos por un falso positivo
+    // (keyboard, IRQ secundaria) state seguirá BLOCKED y reintentamos.
+    // Solo cuando unblock_process() cambie state a READY/RUNNING saldremos.
+    while (cur->state == BLOCKED) {
+        yield_process();        // quantum = 0
+        __asm__ __volatile__("sti; hlt");
+    }
+
     return 0;
 }
 

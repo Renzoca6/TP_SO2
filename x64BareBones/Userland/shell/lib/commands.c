@@ -42,6 +42,7 @@ void mvar_writer_entry(void);
 void mvar_reader_entry(void);
 void cmd_yield(int argc, char **argv);
 void cmd_test_prio(int argc, char **argv);
+void cmd_test_sync(int argc, char **argv);
 
 // IMPORTANTE: tabla ordenada lexicográficamente (búsqueda binaria CI).
 const command_t COMMANDS[] = {
@@ -70,6 +71,7 @@ const command_t COMMANDS[] = {
     { "testprio",      18 },
     { "testproc",      36 },
     { "testsound",     12 },
+    { "testsync",      37 },
     { "testsyscalls",  14 },
     { "testzero",       6 },
     { "time",           7 },
@@ -113,6 +115,7 @@ int commands_Handler(int func, int argc, char *argv[]) {
         case 32: cmd_mem(argc, argv);                         break;
         case 33: cmd_sem(argc, argv);                         break;
         case 36: cmd_test_proc(argc, argv);                  break;
+        case 37: cmd_test_sync(argc, argv);                  break;
         case 34: cmd_mvar(argc, argv);                        break;
         case 35: cmd_yield(argc, argv);                       break;
         default:                                             break;
