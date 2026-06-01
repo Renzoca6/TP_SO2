@@ -63,6 +63,12 @@ void idt_init(void) {
     idt_set_entry(0x00, (uint64_t)&_exception0Handler);
     idt_set_entry(0x06, (uint64_t)&_exception6Handler);
 
+    /* Double Fault (8), GPF (13), Page Fault (14): sin handler, un acceso
+       inválido escala a triple fault y reinicia la VM en silencio. */
+    idt_set_entry(0x08, (uint64_t)&_exception8Handler);
+    idt_set_entry(0x0D, (uint64_t)&_exception13Handler);
+    idt_set_entry(0x0E, (uint64_t)&_exception14Handler);
+
     // interrupción de software / syscall (lo tenías así)
     idt_set_entry(0x80, (uint64_t)&_irq06Handler);
 

@@ -34,14 +34,18 @@ static uint64_t initial_userland_rsp = 0;
 static void printHexPadded(uint64_t v);
 static void print_registers(void);
 static void handle_exception(const char *title, uint64_t *registers);
+static void handle_fatal_exception(const char *title, uint64_t *registers);
 
 /* Tabla de nombres por ID que te interesan (podés extenderla si luego agregás más) */
 static const struct {
     int         id;
     const char *msg;
 } EXC_TABLE[] = {
-    { EXC_DIVIDE_ERROR,   "Cannot Divide By Zero" },
-    { EXC_INVALID_OPCODE, "Invalid Operation Code" }
+    { EXC_DIVIDE_ERROR,    "Cannot Divide By Zero" },
+    { EXC_INVALID_OPCODE,  "Invalid Operation Code" },
+    { EXC_DOUBLE_FAULT,    "Double Fault" },
+    { EXC_GENERAL_PROTECT, "General Protection Fault" },
+    { EXC_PAGE_FAULT,      "Page Fault" }
 };
 
 
@@ -118,6 +122,19 @@ static void print_registers(void) {
 // Dispatcher de excepciones
 // ---------------------------------------------------------------------
 void exceptionDispatcher(int exception_id, uint64_t *registers) {
+    /* Fallos de memoria/protección: mostrar el snapshot y DETENER la CPU
+       (no son recuperables; reintentar entraría en un loop de faults). */
+    if (exception_id == EXC_DOUBLE_FAULT ||
+        exception_id == EXC_GENERAL_PROTECT ||
+        exception_id == EXC_PAGE_FAULT) {
+        const char *msg = "Fatal CPU Exception";
+        for (unsigned i = 0; i < sizeof(EXC_TABLE) / sizeof(EXC_TABLE[0]); i++) {
+            if (exception_id == EXC_TABLE[i].id) { msg = EXC_TABLE[i].msg; break; }
+        }
+        handle_fatal_exception(msg, registers);
+        return;
+    }
+
     /* selecciona la excepcion correspondiente */
     for (unsigned i = 0; i < sizeof(EXC_TABLE) / sizeof(EXC_TABLE[0]); i++) {
         if (exception_id == EXC_TABLE[i].id) {
@@ -128,6 +145,28 @@ void exceptionDispatcher(int exception_id, uint64_t *registers) {
 
     /* Desconocida pero la mostramos igual */
     handle_exception("Unknown Exception", registers);
+}
+
+// ---------------------------------------------------------------------
+// Excepción fatal: imprime el estado y detiene la CPU (no reintenta).
+// ---------------------------------------------------------------------
+static void handle_fatal_exception(const char *title, uint64_t *registers) {
+    vdNewline();
+    vdPrint("Exception: ", PIXEL_VRAM);
+    vdPrint(title, PIXEL_VRAM);
+    vdNewline();
+
+    updateRegs(registers);
+    print_registers();
+
+    vdNewline();
+    vdPrint("KERNEL HALTED.", PIXEL_VRAM);
+    vdNewline();
+
+    /* cli+hlt: frena la CPU (sin interrupciones) para que no se repita el fault. */
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
 }
 
 // ---------------------------------------------------------------------

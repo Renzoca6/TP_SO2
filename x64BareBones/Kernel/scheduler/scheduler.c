@@ -95,6 +95,10 @@ static void free_pcb_resources(PCB *pcb) {
     pcb->pid = 0;
 }
 
+void free_killed_process(PCB *pcb) {
+    free_pcb_resources(pcb);
+}
+
 uint64_t schedule(uint64_t current_rsp) {
     if (to_free) {
         free_pcb_resources(to_free);

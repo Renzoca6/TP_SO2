@@ -38,9 +38,10 @@ static int64_t test_processes(uint64_t argc, char *argv[]) {
     while (1) {
         iteration++;
 
-        // Crear max_processes procesos endless_loop
+        // Crear max_processes procesos endless_loop con prioridad normal (2).
+        // Con prioridad 0 (la más alta) dejarían sin CPU al test -> livelock.
         for (rq = 0; rq < max_processes; rq++) {
-            p_rqs[rq].pid = my_create_process(endless_loop, 0, argvAux);
+            p_rqs[rq].pid = my_create_process(endless_loop, 2, argvAux);
             if (p_rqs[rq].pid == -1) {
                 println("test_processes: ERROR creating process");
                 return -1;

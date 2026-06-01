@@ -29,6 +29,10 @@ void *const shellAddress = (void *)0x400000;  // visible globalmente
 
 #define HEAP_SIZE (4 * 1024 * 1024)   // 4 MB de heap
 
+// El heap debe quedar por encima del binario de la shell (en 0x400000); si no,
+// los stacks de los procesos lo pisan y se corrompen. Arranca en 5 MB.
+#define HEAP_START ((void *)0x500000)
+
 typedef int (*EntryPoint)();
 
 // ---------------------------------------------------------------------
@@ -47,7 +51,7 @@ void *getStackBase(void) {
 }
 
 void *getHeapStart(void) {
-    return (void *)((uint64_t)&endOfKernel + PageSize * 8);
+    return HEAP_START;
 }
 
 // ---------------------------------------------------------------------

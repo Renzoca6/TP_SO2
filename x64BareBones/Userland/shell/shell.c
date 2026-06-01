@@ -26,6 +26,7 @@ typedef struct {
 static PipeProcCtx g_pipe_ctx_a;   // cmd1: stdout → pipe
 static PipeProcCtx g_pipe_ctx_b;   // cmd2: stdin  ← pipe
 static char        g_bg_cmd[256];  // comando de background
+static char        g_fg_cmd[256];  // comando de foreground
 
 // ---------------------------------------------------------------------
 // Helpers de string sin libc
@@ -97,6 +98,14 @@ static void bg_proc_entry(void) {
 }
 
 // ---------------------------------------------------------------------
+// Entrada del proceso de foreground (comando sin & ni |).
+// ---------------------------------------------------------------------
+static void fg_proc_entry(void) {
+    cr_dispatch_exact(g_fg_cmd);
+    exit_process();
+}
+
+// ---------------------------------------------------------------------
 // Ejecutar cmd1 | cmd2.
 // ---------------------------------------------------------------------
 static void run_piped(char *buf, int pipe_pos) {
@@ -150,6 +159,20 @@ static void run_background(char *buf) {
 }
 
 // ---------------------------------------------------------------------
+// Comando en foreground COMO PROCESO (no inline): se crea y se espera con
+// waitpid (sin busy-wait). Ctrl+C lo mata y devuelve el prompt.
+// ---------------------------------------------------------------------
+static void run_foreground(char *buf) {
+    sh_strcpy(g_fg_cmd, buf, 256);
+    int pid = create_process((void *)fg_proc_entry, "fg", 2, 1, 0, 0);
+    if (pid < 0) {
+        println("Error: no se pudo crear el proceso.");
+        return;
+    }
+    waitpid((uint64_t)pid);
+}
+
+// ---------------------------------------------------------------------
 // Dispatcher principal: detecta |, &, o comando simple.
 // ---------------------------------------------------------------------
 static void shell_dispatch(char *buf) {
@@ -177,7 +200,7 @@ static void shell_dispatch(char *buf) {
     } else if (background) {
         run_background(buf);
     } else {
-        cr_dispatch_exact(buf);
+        run_foreground(buf);
     }
 }
 

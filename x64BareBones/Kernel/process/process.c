@@ -1,6 +1,7 @@
 #include "process.h"
 #include "memory_manager.h"
 #include "sem.h"
+#include "scheduler.h"
 #include <string.h>
 #include "interrupts.h"
 
@@ -189,8 +190,35 @@ void kill_process(uint64_t pid) {
     if (!pcb) return;
     if (pcb->state == KILLED) return;
 
-    pcb->state = KILLED;
+    // Despertar a quien esté esperando este pid con waitpid (vale para kill
+    // por syscall y para Ctrl+C).
+    char *sem_name = build_wait_sem_name(pid);
+    if (sem_name) {
+        int sem_id = sem_open(sem_name, 0);
+        if (sem_id >= 0) {
+            sem_post(sem_id);
+            sem_close(sem_id);
+        }
+        mm_free(sem_name);
+    }
+
+    // Sacarlo de las colas de semáforos por si moría bloqueado en uno.
     sem_remove_pid((int)pid);
+
+    if (pcb == get_current_process()) {
+        // Se mata a sí mismo: lo libera el scheduler en el próximo switch
+        // (no podemos liberar el stack en uso).
+        pcb->state = KILLED;
+        return;
+    }
+
+    // No es el actual: si está READY sacarlo de la cola, y liberarlo ya
+    // (así no quedan PCBs/stacks colgados al matar procesos bloqueados).
+    if (pcb->state == READY) {
+        remove_from_ready_queue(pcb);
+    }
+    pcb->state = KILLED;
+    free_killed_process(pcb);
 }
 
 PCB *get_process_by_pid(uint64_t pid) {

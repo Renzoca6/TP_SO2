@@ -14,6 +14,9 @@ GLOBAL _irq05Handler
 GLOBAL _irq06Handler
 GLOBAL _exception0Handler
 GLOBAL _exception6Handler
+GLOBAL _exception8Handler
+GLOBAL _exception13Handler
+GLOBAL _exception14Handler
 
 
 EXTERN syscall_handler
@@ -89,7 +92,24 @@ SECTION .text
 
 	mov rdi, %1           ; primer argumento: exception ID
 	mov rsi, rsp          ; segundo argumento: puntero al stack (frame de registros)
-	
+
+	call exceptionDispatcher
+
+	popState
+	iretq
+%endmacro
+
+
+; exceptionHandlerErr: para excepciones con ERROR CODE (#DF, #GP, #PF).
+; El CPU pushea el error code antes del frame; lo descartamos para que el
+; iretq quede igual que en las excepciones sin error code.
+; args: 1 = id exception
+%macro exceptionHandlerErr 1
+	add rsp, 8            ; descartar el error code
+	pushState
+
+	mov rdi, %1
+	mov rsi, rsp
 	call exceptionDispatcher
 
 	popState
@@ -155,6 +175,18 @@ _exception0Handler:
 ;OP Exception (Invalid Opcode)
 _exception6Handler:
 	exceptionHandler 6
+
+;Double Fault (#8) — pushea error code (siempre 0)
+_exception8Handler:
+	exceptionHandlerErr 8
+
+;General Protection Fault (#13) — pushea error code
+_exception13Handler:
+	exceptionHandlerErr 13
+
+;Page Fault (#14) — pushea error code
+_exception14Handler:
+	exceptionHandlerErr 14
 
 
 

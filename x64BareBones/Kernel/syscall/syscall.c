@@ -443,15 +443,7 @@ static void syscall_ps(uint64_t *registers) {
 
 static void syscall_kill(uint64_t *registers) {
     uint64_t pid = registers[13]; // RBX
-    char *sem_name = build_wait_sem_name(pid);
-    if (sem_name) {
-        int sem_id = sem_open(sem_name, 0);
-        if (sem_id >= 0) {
-            sem_post(sem_id);
-            sem_close(sem_id);
-        }
-        mm_free(sem_name);
-    }
+    // kill_process se encarga de despertar a quien espere con waitpid.
     kill_process(pid);
     registers[14] = 0;
 }

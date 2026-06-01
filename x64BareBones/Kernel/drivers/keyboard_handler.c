@@ -55,11 +55,12 @@ static char scancode_to_ascii[128] = {
     // resto F1..F12 si hace falta
 };
 
-static char scancode_to_ascii_mayus[128] = {
-    0,  27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\b',
-    '\t','Q','W','E','R','T','Y','U','I','O','P', 0, 0,'\n', 0,
-    'A','S','D','F','G','H','J','K','L', 0, 0, 0, 0, 0,'Z','X',
-    'C','V','B','N','M', 0, 0, 0, 0, 0, 0, ' ',
+// Tabla con SHIFT (layout US): incluye símbolos como '&' (background) y '|' (pipes).
+static char scancode_to_ascii_shift[128] = {
+    0,  27, '!','@','#','$','%','^','&','*','(',')','_','+', '\b',    // 0x00-0x0E
+    '\t','Q','W','E','R','T','Y','U','I','O','P','{','}','\n', 0,     // 0x0F-0x1D
+    'A','S','D','F','G','H','J','K','L',':','"','~', 0,'|','Z','X',   // 0x1E-0x2D
+    'C','V','B','N','M','<','>','?', 0, '*', 0, ' ',                  // 0x2E-0x39
 };
 
 // ---------------------------------------------------------------------
@@ -133,9 +134,16 @@ void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
     ev.scancode   = scancode;
     ev.is_pressed = true;
 
-    char ch = capsLock
-                ? scancode_to_ascii_mayus[scancode]
-                : scancode_to_ascii[scancode];
+    char base    = scancode_to_ascii[scancode];
+    char shifted = scancode_to_ascii_shift[scancode];
+    char ch;
+    if (base >= 'a' && base <= 'z') {
+        // Letras: mayúscula con Shift XOR CapsLock
+        ch = (shiftPressed ^ capsLock) ? (char)(base - 'a' + 'A') : base;
+    } else {
+        // Símbolos/números: versión shifteada si hay Shift
+        ch = shiftPressed ? shifted : base;
+    }
 
     if (ctrlPressed) {
         if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
