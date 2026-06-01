@@ -43,6 +43,18 @@ static void sh_strcpy(char *dst, const char *src, int max) {
     dst[i] = '\0';
 }
 
+// Copia el primer token (hasta espacio/tab) de src a dst. Truncado a max-1.
+// Si src arranca con espacios, los salta. dst queda con '\0' al final.
+static void sh_first_token(const char *src, char *dst, int max) {
+    int i = 0;
+    while (src[i] == ' ' || src[i] == '\t') i++;  // skip leading ws
+    int j = 0;
+    while (src[i] && src[i] != ' ' && src[i] != '\t' && j < max - 1) {
+        dst[j++] = src[i++];
+    }
+    dst[j] = '\0';
+}
+
 static void sh_trim_right(char *s) {
     int n = sh_strlen(s);
     while (n > 0 && (s[n-1] == ' ' || s[n-1] == '\t')) {
@@ -134,8 +146,11 @@ static void run_piped(char *buf, int pipe_pos) {
     sh_strcpy(g_pipe_ctx_b.cmd, cmd2, 256);
     g_pipe_ctx_b.pipe_id = pid_pipe;
 
-    int pid1 = create_process((void *)pipe_proc_a, "pipe_l", 2, 1, 0, 0);
-    int pid2 = create_process((void *)pipe_proc_b, "pipe_r", 2, 1, 0, 0);
+    char name1[32], name2[32];
+    sh_first_token(cmd1, name1, 32);
+    sh_first_token(cmd2, name2, 32);
+    int pid1 = create_process((void *)pipe_proc_a, name1, 2, 1, 0, 0);
+    int pid2 = create_process((void *)pipe_proc_b, name2, 2, 1, 0, 0);
 
     if (pid1 > 0) wait_for_pid(pid1);
     if (pid2 > 0) wait_for_pid(pid2);
@@ -146,7 +161,9 @@ static void run_piped(char *buf, int pipe_pos) {
 // ---------------------------------------------------------------------
 static void run_background(char *buf) {
     sh_strcpy(g_bg_cmd, buf, 256);
-    int pid = create_process((void *)bg_proc_entry, "bg", 2, 0, 0, 0);
+    char name[32];
+    sh_first_token(buf, name, 32);
+    int pid = create_process((void *)bg_proc_entry, name, 2, 0, 0, 0);
     if (pid < 0) {
         println("Error: no se pudo crear el proceso en background.");
     } else {
@@ -164,7 +181,9 @@ static void run_background(char *buf) {
 // ---------------------------------------------------------------------
 static void run_foreground(char *buf) {
     sh_strcpy(g_fg_cmd, buf, 256);
-    int pid = create_process((void *)fg_proc_entry, "fg", 2, 1, 0, 0);
+    char name[32];
+    sh_first_token(buf, name, 32);
+    int pid = create_process((void *)fg_proc_entry, name, 2, 1, 0, 0);
     if (pid < 0) {
         println("Error: no se pudo crear el proceso.");
         return;
