@@ -68,22 +68,6 @@ static char *sh_trim_left(char *s) {
 }
 
 // ---------------------------------------------------------------------
-// Espera a que un proceso desaparezca de la tabla de procesos.
-// ---------------------------------------------------------------------
-static void wait_for_pid(int pid) {
-    ProcessInfo buf[64];
-    while (1) {
-        int n = ps(buf, 64);
-        int found = 0;
-        for (int i = 0; i < n; i++) {
-            if ((int)buf[i].pid == pid) { found = 1; break; }
-        }
-        if (!found) return;
-        yield();
-    }
-}
-
-// ---------------------------------------------------------------------
 // Entradas de los procesos de pipe.
 // Cada una configura su propio fd antes de ejecutar el comando.
 // ---------------------------------------------------------------------
@@ -152,8 +136,8 @@ static void run_piped(char *buf, int pipe_pos) {
     int pid1 = create_process((void *)pipe_proc_a, name1, 2, 1, 0, 0);
     int pid2 = create_process((void *)pipe_proc_b, name2, 2, 1, 0, 0);
 
-    if (pid1 > 0) wait_for_pid(pid1);
-    if (pid2 > 0) wait_for_pid(pid2);
+    if (pid1 > 0) waitpid((uint64_t)pid1);
+    if (pid2 > 0) waitpid((uint64_t)pid2);
 }
 
 // ---------------------------------------------------------------------

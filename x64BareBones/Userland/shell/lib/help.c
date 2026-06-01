@@ -163,12 +163,12 @@ static const help_entry_t HELP_ENTRIES[] = {
     { "sem",         "Gestion de semaforos nombrados.",                       "sem open/close/wait/post/value" },
     { "shutdown",    "Shutdown the system.",                                  "shutdown" },
     { "sleep",       "Pause execution for specified milliseconds.",          "sleep <ms>" },
+    { "test_mm",     "Memory manager fuzz test (alloc/write/check/free).",  "test_mm <max_mem>" },
+    { "test_prio",   "Priority scheduler test with 3 processes.",           "test_prio <max_value>" },
+    { "test_proc",   "Crea/bloquea/mata procesos dummy aleatoriamente.",    "test_proc <max_processes>" },
+    { "test_sync",   "Test de sincronizacion con semaforos. Sin sem muestra race conditions.", "test_sync <n> <pairs> <use_sem>" },
     { "testinvalidop", "Trigger an invalid opcode exception (testing).",     "testinvalidop" },
-    { "testmm",      "Memory manager fuzz test (alloc/write/check/free).",  "testmm <max_mem>" },
-    { "testprio",    "Priority scheduler test with 3 processes.",         "testprio <max_value>" },
-    { "testproc",    "Crea/bloquea/mata procesos dummy aleatoriamente.",  "testproc <max_processes>" },
     { "testsound",   "Test system sound/beep functionality.",                "testsound" },
-    { "testsync",    "Test de sincronizacion con semaforos. Sin sem muestra race conditions.", "testsync <n> <pairs> <use_sem>" },
     { "testsyscalls","Run a complete test of all system calls.",             "testsyscalls" },
     { "testzero",    "Trigger a divide-by-zero exception (testing).",        "testzero" },
     { "time",        "Show the current time.",                               "time" },
@@ -213,7 +213,7 @@ static int is_so2_command_(const char *name) {
 
 static int is_test_command_(const char *name) {
     static const char *test_list[] = {
-        "testmm", "testprio", "testproc", "testsync"
+        "test_mm", "test_prio", "test_proc", "test_sync"
     };
     int n = (int)(sizeof(test_list) / sizeof(test_list[0]));
     for (int i = 0; i < n; i++) {

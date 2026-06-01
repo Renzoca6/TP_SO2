@@ -58,7 +58,7 @@ void sync_inc_worker(void) {
 
 void cmd_test_sync(int argc, char **argv) {
     if (argc != 4) {
-        println("Usage: testsync <n> <pairs> <use_sem>");
+        println("Usage: test_sync <n> <pairs> <use_sem>");
         return;
     }
 
@@ -67,7 +67,7 @@ void cmd_test_sync(int argc, char **argv) {
     int      use_sem = (int)satoi(argv[3]);
 
     if (n == 0 || pairs <= 0 || pairs > 32) {
-        println("testsync: invalid arguments");
+        println("test_sync: invalid arguments");
         return;
     }
 
@@ -75,7 +75,7 @@ void cmd_test_sync(int argc, char **argv) {
     if (use_sem) {
         sem_id = sem_open("tsync_sem", 1);
         if (sem_id < 0) {
-            println("testsync: ERROR opening semaphore");
+            println("test_sync: ERROR opening semaphore");
             return;
         }
     }

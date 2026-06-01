@@ -17,7 +17,7 @@ void test_mm_command(int argc, char *argv[]) {
     uint64_t iterations = 0;
 
     if (argc != 2) {
-        println("Usage: testmm <max_memory_bytes>");
+        println("Usage: test_mm <max_memory_bytes>");
         return;
     }
 
