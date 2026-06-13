@@ -279,7 +279,10 @@ static void syscall_read(uint64_t *registers) {
             }
             if (c == '\n') {
                 buf[size] = '\0';
-                registers[14] = (uint64_t)size;
+                // Línea vacía → retornamos 1 para distinguir de EOF (que es 0).
+                // Sin esto, `cat | wc` y similares tratarían el primer Enter
+                // vacío como EOF y saldrían.
+                registers[14] = (size == 0) ? 1 : (uint64_t)size;
                 return;
             }
             buf[size++] = c;
@@ -301,7 +304,10 @@ static void syscall_read(uint64_t *registers) {
                 if (k.key == '\n') {
                     vdPrintChar('\n', PIXEL_VRAM);
                     buf[size] = '\0';
-                    registers[14] = (uint64_t)size;
+                    // Enter sin tipear → retornamos 1 para distinguir de EOF.
+                    // cat / wc / filter dependen de esto para no confundir
+                    // línea vacía con Ctrl+D.
+                    registers[14] = (size == 0) ? 1 : (uint64_t)size;
                     disable_interrupts();
                     return;
                 } else if (k.key == '\b') {
@@ -312,6 +318,14 @@ static void syscall_read(uint64_t *registers) {
                     }
                 } else if (k.key == 4) {    // Ctrl+D (EOF)
                     buf[size] = '\0';
+                    registers[14] = 0;
+                    disable_interrupts();
+                    return;
+                } else if (k.key == 3) {    // Ctrl+C: cancelar línea actual.
+                    // El handler pushea key=3 cuando el shell está en read()
+                    // sin proceso fg. Descartamos lo tipeado y retornamos 0
+                    // para que el shell loopee al prompt sin ejecutar nada.
+                    buf[0] = '\0';
                     registers[14] = 0;
                     disable_interrupts();
                     return;

@@ -189,6 +189,7 @@ void kill_process(uint64_t pid) {
     PCB *pcb = get_process_by_pid(pid);
     if (!pcb) return;
     if (pcb->state == KILLED) return;
+    if (pid == shell_pid) return;   // el shell es intocable: sin él no hay sesión
 
     // Despertar a quien esté esperando este pid con waitpid (vale para kill
     // por syscall y para Ctrl+C).
@@ -314,15 +315,18 @@ void set_shell_pid(uint64_t pid) {
     shell_pid = pid;
 }
 
-void kill_foreground_process(void) {
+int kill_foreground_process(void) {
+    int killed = 0;
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if (process_table[i].state != KILLED &&
             process_table[i].pid != 0 &&
             process_table[i].foreground == 1 &&
             process_table[i].pid != shell_pid) {
             kill_process(process_table[i].pid);
+            killed++;
         }
     }
+    return killed;
 }
 
 // ---------------------------------------------------------------------

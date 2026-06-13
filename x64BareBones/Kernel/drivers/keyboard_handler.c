@@ -76,6 +76,11 @@ static int count   = 0;
 static bool capsLock     = false;
 static bool shiftPressed = false;
 static bool ctrlPressed  = false;
+// Edge-trigger para Ctrl+C: el teclado PS/2 hace autorepeat del scancode
+// 0x2E ('c') mientras se mantiene apretado y nos llovería un ^C por cada
+// repeat. Latcheamos al primer disparo y reseteamos cuando se suelta la 'c'
+// o el Ctrl.
+static bool ctrlC_latch  = false;
 
 static inline bool bufferFull(void)  { return count == BUFFER_MAXLENGTH; }
 static inline bool bufferEmpty(void) { return count == 0; }
@@ -97,7 +102,7 @@ static void pushEvent(KeyBufferStruct ev) {
 void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
     // Left Ctrl press/release
     if (scancode == 0x1D) { ctrlPressed = true;  return; }
-    if (scancode == 0x9D) { ctrlPressed = false; return; }
+    if (scancode == 0x9D) { ctrlPressed = false; ctrlC_latch = false; return; }
 
     // Shift press
     if (scancode == 0x2A || scancode == 0x36) {
@@ -127,6 +132,8 @@ void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
 
     // Ignorar release (break codes)
     if (scancode & 0x80) {
+        // 'c' release (0xAE) resetea el latch para permitir el próximo Ctrl+C.
+        if (scancode == 0xAE) ctrlC_latch = false;
         return;
     }
 
@@ -149,8 +156,26 @@ void addKeyToBuffer(uint8_t scancode, uint64_t *registers) {
         if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
             ch = (char)(ch & 0x1F);
             if (ch == 3) {
+                if (ctrlC_latch) return;   // autorepeat: ya disparamos este press
+                ctrlC_latch = true;
                 vdPrint("^C\n", PIXEL_VRAM);
-                kill_foreground_process();
+                int killed = kill_foreground_process();
+                if (killed == 0) {
+                    // Sin proceso fg para matar: el shell está esperando en
+                    // read(). Pusheamos un evento "cancel" (key=3) al buffer
+                    // para que syscall_read lo detecte, descarte la línea
+                    // tipeada y retorne 0. Sin esto, el ^C aparece pero el
+                    // texto previo queda enganchado y se ejecuta al pulsar
+                    // Enter.
+                    // Si killed > 0 NO pusheamos: el shell está en waitpid;
+                    // cuando vuelva, llamará read() y veríamos un doble
+                    // prompt si el 3 estuviera en cola.
+                    KeyBufferStruct cancel = {0};
+                    cancel.scancode   = scancode;
+                    cancel.is_pressed = true;
+                    cancel.key        = 3;
+                    pushEvent(cancel);
+                }
                 return;
             }
             // Other control chars (Ctrl+D=4, etc.): fall through to enqueue
@@ -186,6 +211,7 @@ void keyboardPressed(uint64_t *registers) {
         // Right Ctrl press (E0 1D) / release (E0 9D)
         if (code == 0x1D) {
             ctrlPressed = !released;
+            if (released) ctrlC_latch = false;
             e0_prefix = false;
             return;
         }

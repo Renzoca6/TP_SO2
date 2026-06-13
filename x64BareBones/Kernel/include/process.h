@@ -56,7 +56,7 @@ int  get_process_list(ProcessInfo *buf, int max_count);
 int  set_process_priority(uint64_t pid, int new_priority);
 void exit_current_process(void);
 void set_shell_pid(uint64_t pid);
-void kill_foreground_process(void);
+int  kill_foreground_process(void);  // retorna cantidad de procesos matados
 int   wait_child(uint64_t child_pid);
 char *build_wait_sem_name(uint64_t pid);
 
