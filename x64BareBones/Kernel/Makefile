@@ -4,7 +4,7 @@ KERNEL       := kernel.bin
 
 # ---- memory manager selection ----
 #   make         → buddy allocator (default)
-#   make freelist → freelist (stub)
+#   make bitmap  → bitmap allocator
 MM_SRC       ?= memory/buddy_mm.c
 MM_OBJ        = $(MM_SRC:.c=.o)
 
@@ -65,6 +65,8 @@ $(LOADER_OBJ): $(LOADER)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
 clean:
-	rm -f $(C_OBJS) $(ASM_OBJS) $(LOADER_OBJ) $(KERNEL) memory/*.o process/*.o scheduler/*.o pipes/*.o sem/*.o
+	rm -f $(C_OBJS) $(ASM_OBJS) $(LOADER_OBJ) $(KERNEL) \
+	      memory/*.o drivers/*.o syscall/*.o benchmark/*.o utils/*.o \
+	      interrupts/*.o process/*.o scheduler/*.o pipes/*.o sem/*.o asm/*.o
 
 .PHONY: all buddy clean

@@ -116,7 +116,9 @@ uint64_t schedule(uint64_t current_rsp) {
         if (current_process->state == RUNNING) {
             add_to_ready_queue(current_process);
         } else if (current_process->state == KILLED) {
-            free_pcb_resources(current_process);
+            // No liberar el stack en uso: diferir al próximo schedule(),
+            // cuando ya estemos corriendo sobre el stack de otro proceso.
+            to_free = current_process;
         }
     }
 
