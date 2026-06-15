@@ -1,17 +1,7 @@
 # TP2 — Núcleo de Sistema Operativo
 
 **Materia:** Sistemas Operativos (72.11) — ITBA  
-**Trabajo Práctico:** TP2 — Núcleo de SO y administración de recursos
-
----
-
-## Integrantes
-
-| Nombre | Legajo | Email |
-|--------|--------|-------|
-| — | — | — |
-| — | — | — |
-| — | — | — |
+**Trabajo Práctico:** TP2 
 
 ---
 
@@ -315,35 +305,18 @@ Las siguientes características **no fueron implementadas**, por decisión de di
 - Combinación simultánea de `|` y `&` en una misma línea.
 - Aging / mecanismo anti-inanición en el scheduler.
 
----
-
-## Limitaciones conocidas
-
-- **Pipes solo binarios:** `cmd1 | cmd2 | cmd3` no funciona; el tercer segmento se
-  interpreta como nombre de comando literal y falla.
-- **`|` y `&` no combinables:** en `cmd1 | cmd2 &` el `&` se ignora silenciosamente;
-  los pipes siempre bloquean la shell hasta que ambos procesos terminan.
-- **Leak de heap al matar procesos:** el kernel libera únicamente el stack y los
-  argumentos del proceso muerto. La memoria pedida con `malloc` dentro del proceso queda
-  leakeada si el proceso es matado antes de liberarla. Casos concretos: matar `test_mm`
-  mientras tiene bloques vivos, o matar procesos de `mvar`/`test_sync` con semáforos
-  abiertos.
-- **Capacidades fijas del kernel:** máximo 64 procesos simultáneos, 32 semáforos,
-  16 pipes, buffer de pipe de 4096 bytes, 32 tokens por línea de comando.
-- **Sin aging:** un proceso con prioridad 0 ó 1 puede inanir indefinidamente a
-  procesos de menor prioridad (número mayor).
-- **Periodicidad de `loop` no determinística:** el delay es un busy-loop de 300 millones
-  de iteraciones; el tiempo real varía según la carga del sistema.
 
 ---
 
 ## Base del proyecto y uso de IA
 
-Este trabajo parte del esqueleto **x64BareBones** provisto por la cátedra (autores:
-Rodrigo Rearden / RowDaBoat y Augusto Nizzo McIntosh), que proporciona el entry point
-del kernel, el bootloader y la infraestructura de compilación para la arquitectura
-Intel x86-64.
 
-Durante el desarrollo se utilizaron **asistentes de inteligencia artificial** (incluyendo
-Claude Code) como herramienta de asistencia para implementación, depuración y revisión
-de código. Toda la lógica fue revisada y validada por los integrantes del grupo.
+Nuestro propio **TP de Arquitectura de Computadoras** del cuatrimestre anterior, del
+que reutilizamos los drivers de video y teclado, el manejo de interrupciones, la IDT
+y el handler de syscalls. Sobre esa base se sumó todo lo nuevo de este TP: memoria
+física, scheduler con prioridades, procesos, semáforos y pipes.
+
+Durante el desarrollo usamos asistentes de IA (principalmente Claude Code) como apoyo
+para implementación, debugging y revisión de código. Este README también fue redactado
+con ayuda de IA. La lógica del código y las decisiones de diseño fueron revisadas y
+validadas por los integrantes del grupo.
