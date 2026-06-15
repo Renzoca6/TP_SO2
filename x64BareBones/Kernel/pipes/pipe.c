@@ -1,18 +1,6 @@
-// ---------------------------------------------------------------------
-// pipe.c
-// Implementación de pipes anónimos y nombrados para IPC.
-//
-// Bloqueante: pipe_read bloquea si el buffer está vacío;
-//             pipe_write bloquea si el buffer está lleno.
-//
-// Mecanismo de bloqueo:
-//   1. disable_interrupts() → verificación atómica del buffer.
-//   2. block_current_process() pone el proceso en BLOCKED.
-//   3. enable_interrupts() + yield_process() fuerzan que el timer
-//      dispare y el scheduler cambie de contexto en el próximo tick.
-//   4. pipe_notify() itera los procesos y desbloquea los que
-//      esperaban este pipe_id.
-// ---------------------------------------------------------------------
+// Pipes anónimos y nombrados. read y write son bloqueantes: si no hay datos
+// o el buffer está lleno, el proceso queda BLOCKED hasta que pipe_notify lo
+// despierte.
 #include "pipe.h"
 #include "process.h"
 #include "scheduler.h"
@@ -129,10 +117,10 @@ void pipe_notify(int pipe_id) {
 
 // ---------------------------------------------------------------------
 // Lectura bloqueante por el mecanismo disable/check/block/enable:
-//   - disable_interrupts: sección atómica — evita la race condition
+//   - disable_interrupts: sección atómica - evita la race condition
 //     entre "buffer vacío" y block_current_process().
 //   - Si hay datos: leer y retornar (interrupciones ya habilitadas o
-//     deshabilitadas según contexto de llamada — el caller es syscall.c
+//     deshabilitadas según contexto de llamada - el caller es syscall.c
 //     que las maneja).
 //   - Si no hay datos: bloquear y hacer enable_interrupts para que el
 //     timer pueda disparar y cambiar contexto; al volver, reintentar.

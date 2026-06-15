@@ -1,17 +1,7 @@
-// ---------------------------------------------------------------------
-// pipe_cmds.c
-// Comandos que operan sobre stdin/stdout para usarse con pipes.
-//   cat    — reenvía stdin a stdout hasta EOF
-//   wc     — cuenta líneas leídas desde stdin
-//   filter — reenvía stdin a stdout eliminando las vocales
-//   mem    — imprime el estado del heap
-// ---------------------------------------------------------------------
+// Comandos cat, wc, filter, mem. Operan sobre stdin/stdout y se conectan con pipes.
 #include "../include/syscall_call.h"
 #include "../utils/utils.h"
 
-// ---------------------------------------------------------------------
-// cat: copia stdin → stdout hasta EOF (read retorna 0).
-// ---------------------------------------------------------------------
 void cmd_cat(int argc, char **argv) {
     (void)argc;
     (void)argv;

@@ -1,23 +1,7 @@
-// ---------------------------------------------------------------------
-// sem.c
-// Semáforos nombrados para IPC entre procesos.
-//
-// Protocolo de locks:
-//   registry_lock  — protege búsqueda/creación en sem_open y sem_close.
-//   sems[id].lock  — protege value y blocked_pids en sem_wait/sem_post.
-//
-// En un sistema de CPU única con interrupciones deshabilitadas (contexto
-// de syscall), los spinlocks no giran en la práctica — se adquieren
-// siempre de inmediato. Existen por corrección y para soportar un
-// eventual SMP.
-//
-// Mecanismo de bloqueo en sem_wait:
-//   1. Se agrega el PID a blocked_pids[].
-//   2. Se suelta sems[id].lock ANTES de bloquear (evita deadlock si
-//      sem_post corre antes de que el scheduler cambie de contexto).
-//   3. block_current_process() + yield_process(): el proceso retoma en
-//      el próximo tick del timer cuando sea desbloqueado por sem_post.
-// ---------------------------------------------------------------------
+// Semáforos nombrados para IPC.
+// registry_lock protege sem_open/sem_close. sems[id].lock protege value y
+// blocked_pids en wait/post. En CPU única con interrupciones deshabilitadas
+// los spinlocks no giran (los dejamos por si algún día se va a SMP).
 #include "sem.h"
 #include "process.h"
 #include "scheduler.h"
