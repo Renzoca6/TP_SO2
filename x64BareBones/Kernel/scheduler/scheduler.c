@@ -77,13 +77,6 @@ static PCB *pick_next_process(void) {
 static void free_pcb_resources(PCB *pcb) {
     if (!pcb) return;
 
-    char *sem_name = build_wait_sem_name(pcb->pid);
-    if (sem_name) {
-        int sem_id = sem_open(sem_name, 0);
-        if (sem_id >= 0) sem_close(sem_id);
-        mm_free(sem_name);
-    }
-
     if (pcb->stack_base) {
         mm_free((void *)pcb->stack_base);
         pcb->stack_base = 0;

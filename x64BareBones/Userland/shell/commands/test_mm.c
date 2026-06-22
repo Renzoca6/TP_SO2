@@ -108,12 +108,25 @@ void test_mm_command(int argc, char *argv[]) {
 
         if (iterations % 50 == 0) {
             char buf[32];
-            write("test_mm: iteration ");
+            uint64_t total_mem, used_mem, free_mem;
+            mem_state(&total_mem, &used_mem, &free_mem);
+
+            write("test_mm iter=");
             uintToBase(iterations, buf, 10);
             write(buf);
-            write(", blocks: ");
+            write(" blocks=");
             uintToBase((uint64_t)rq, buf, 10);
-            println(buf);
+            write(buf);
+            write(" used=");
+            uintToBase(used_mem, buf, 10);
+            write(buf);
+            write("/");
+            uintToBase(total_mem, buf, 10);
+            write(buf);
+            write(" (");
+            uintToBase(total_mem > 0 ? (used_mem * 100) / total_mem : 0, buf, 10);
+            write(buf);
+            println("%)");
         }
     }
 }

@@ -37,38 +37,38 @@ void cmd_ps(int argc, char **argv) {
         return;
     }
 
-    println("PID  NAME              PRIO  STATE       FG  RSP          RBP");
-    println("---  ----------------  ----  ----------  --  -----------  -----------");
+    println("PID        NAME              PRIO  STATE       FG  RSP          RBP");
+    println("---------  ----------------  ----  ----------  --  -----------  -----------");
 
     for (int i = 0; i < count; i++) {
-        char line[128];
+        char line[140];
         int pos = 0;
 
-        char num[16];
+        char num[20];
         uintToBase(buf[i].pid, num, 10);
-        append_str(line, &pos, num, 3);
-        pad_str(line, &pos, 5);
+        append_str(line, &pos, num, 9);
+        pad_str(line, &pos, 11);
 
-        append_str(line, &pos, buf[i].name, 22);
-        pad_str(line, &pos, 22);
-
-        uintToBase((uint64_t)buf[i].priority, num, 10);
-        append_str(line, &pos, num, 26);
+        append_str(line, &pos, buf[i].name, 28);
         pad_str(line, &pos, 28);
 
-        append_str(line, &pos, state_name(buf[i].state), 38);
-        pad_str(line, &pos, 40);
+        uintToBase((uint64_t)buf[i].priority, num, 10);
+        append_str(line, &pos, num, 32);
+        pad_str(line, &pos, 34);
+
+        append_str(line, &pos, state_name(buf[i].state), 44);
+        pad_str(line, &pos, 46);
 
         line[pos++] = buf[i].foreground ? 'Y' : 'N';
         line[pos++] = ' ';
-        pad_str(line, &pos, 44);
+        pad_str(line, &pos, 50);
 
         uintToBase(buf[i].rsp, num, 16);
-        append_str(line, &pos, num, 55);
-        pad_str(line, &pos, 57);
+        append_str(line, &pos, num, 61);
+        pad_str(line, &pos, 63);
 
         uintToBase(buf[i].rbp, num, 16);
-        append_str(line, &pos, num, 70);
+        append_str(line, &pos, num, 76);
 
         line[pos] = '\0';
         println(line);
