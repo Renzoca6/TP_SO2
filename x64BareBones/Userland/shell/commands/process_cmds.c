@@ -76,12 +76,21 @@ void cmd_ps(int argc, char **argv) {
 }
 
 void cmd_kill(int argc, char **argv) {
-    if (argc < 2 || !is_numeric(argv[1])) {
-        println("Usage: kill <pid>");
+    if (argc < 2) {
+        println("Usage: kill <pid> [pid ...]");
         return;
     }
-    int pid = string_to_int(argv[1]);
-    kill_process((uint64_t)pid);
+
+    for (int i = 1; i < argc; i++) {
+        if (!is_numeric(argv[i])) {
+            write("kill: '");
+            write(argv[i]);
+            println("' no es un PID valido.");
+            continue;
+        }
+        int pid = string_to_int(argv[i]);
+        kill_process((uint64_t)pid);
+    }
 }
 
 void cmd_nice(int argc, char **argv) {

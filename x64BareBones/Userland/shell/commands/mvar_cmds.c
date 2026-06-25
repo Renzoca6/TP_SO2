@@ -49,8 +49,18 @@ void mvar_reader_entry(void) {
         sem_wait(sem_full);
         sem_wait(sem_mutex);
         char c = mvar_val;
-        char buf[2] = { c, '\0' };
+
+        // Imprime el valor consumido junto al identificador del lector
+        // (1-indexado): por ejemplo "A1" = el lector 1 leyo una 'A'.
+        char buf[16];
+        int  p = 0;
+        buf[p++] = c;
+        char num[8];
+        uintToBase((uint64_t)(id + 1), num, 10);
+        for (int k = 0; num[k]; k++) buf[p++] = num[k];
+        buf[p] = '\0';
         write(buf);
+
         sem_post(sem_mutex);
         sem_post(sem_empty);
     }
