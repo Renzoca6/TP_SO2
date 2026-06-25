@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../include/syscall_call.h"
 #include "../include/test_util.h"
+#include "../utils/utils.h"
 
 // ── Tipos locales ─────────────────────────────────────────────────────
 
@@ -18,6 +19,17 @@ typedef struct {
 } p_rq;
 
 // ── Implementación del test ───────────────────────────────────────────
+
+static int is_foreground(void) {
+    ProcessInfo buf[64];
+    int pid = getpid();
+    int n = ps(buf, 64);
+    for (int i = 0; i < n; i++) {
+        if ((int)buf[i].pid == pid)
+            return buf[i].foreground;
+    }
+    return 0;
+}
 
 static int64_t test_processes(uint64_t argc, char *argv[]) {
     uint64_t rq;
@@ -48,6 +60,14 @@ static int64_t test_processes(uint64_t argc, char *argv[]) {
             }
             p_rqs[rq].state = PROC_RUNNING;
             alive++;
+        }
+
+        if (iteration % 1000 == 0 && is_foreground()) {
+            char nbuf[16];
+            write("test_proc: ");
+            uintToBase(iteration, nbuf, 10);
+            write(nbuf);
+            println(" iters OK (Ctrl+C to stop)");
         }
 
         // Aleatoriamente matar o bloquear procesos hasta que todos mueran

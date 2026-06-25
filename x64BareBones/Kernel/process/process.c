@@ -347,5 +347,6 @@ int wait_child(uint64_t child_pid) {
 
     sem_wait(sem_id);
     sem_close(sem_id);
+    sem_close(sem_id);  // consume la referencia creada por create_process → users=0, destruido
     return 0;
 }
